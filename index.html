@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -11,13 +12,12 @@
 
   <style>
     :root {
-      --background: #0a0f0b;
+      --background: #090d0a;
       --panel: rgba(20, 29, 22, 0.96);
       --panel-border: #39463c;
       --text: #f3f0df;
       --muted: #a7b2a8;
       --accent: #d7b56d;
-      --danger: #c95a5a;
       --button: #28352b;
       --button-hover: #344538;
     }
@@ -31,7 +31,12 @@
       margin: 0;
       min-height: 100%;
       background:
-        radial-gradient(circle at top, #263128 0%, #111712 45%, #080b09 100%);
+        radial-gradient(
+          circle at top,
+          #263128 0%,
+          #111712 45%,
+          #080b09 100%
+        );
       color: var(--text);
       font-family:
         system-ui,
@@ -61,7 +66,6 @@
       border: 1px solid var(--panel-border);
       border-radius: 16px;
       background: var(--panel);
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
     }
 
     .game-panel {
@@ -86,6 +90,22 @@
       touch-action: none;
     }
 
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(7, 11, 8, 0.86);
+      color: var(--text);
+      font-weight: 700;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+    }
+
     .info-panel {
       padding: 20px;
     }
@@ -93,7 +113,6 @@
     h1 {
       margin: 0;
       font-size: 25px;
-      letter-spacing: 0.04em;
     }
 
     .subtitle {
@@ -104,13 +123,10 @@
 
     .stats {
       margin-top: 20px;
-      display: grid;
-      gap: 2px;
     }
 
     .stat-row {
       display: flex;
-      align-items: center;
       justify-content: space-between;
       gap: 12px;
       padding: 11px 0;
@@ -201,12 +217,19 @@
           height="540"
           aria-label="迷霧遺跡遊戲畫面"
         ></canvas>
+
+        <div id="loadingOverlay" class="loading-overlay">
+          場景載入中
+        </div>
       </div>
     </section>
 
     <aside class="info-panel">
       <h1>迷霧遺跡</h1>
-      <div class="subtitle">Mist Ruins｜2D 世界探索原型</div>
+
+      <div class="subtitle">
+        Mist Ruins｜2D 世界探索原型
+      </div>
 
       <div class="stats">
         <div class="stat-row">
@@ -225,8 +248,15 @@
         </div>
 
         <div class="stat-row">
+          <span>場景</span>
+          <strong id="sceneText">Starting Area</strong>
+        </div>
+
+        <div class="stat-row">
           <span>狀態</span>
-          <strong id="statusText" class="status-message">探索中</strong>
+          <strong id="statusText" class="status-message">
+            探索中
+          </strong>
         </div>
       </div>
 
@@ -252,8 +282,8 @@
       </div>
 
       <div class="notice">
-        地圖編輯器按下「儲存到瀏覽器」後，回到遊戲按下
-        「重新讀取地圖」，即可套用新地圖。
+        在地圖編輯器套用背景、設定碰撞及物件後，
+        按下「儲存到瀏覽器」，再回到遊戲重新讀取。
       </div>
     </aside>
   </main>
@@ -262,25 +292,35 @@
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "mistRuinsMapV2";
+      const STORAGE_KEY = "mistRuinsMapV3";
 
-      const TILE_SIZE = 40;
       const VIEW_WIDTH = 960;
       const VIEW_HEIGHT = 540;
+      const TILE_SIZE = 40;
 
-      const canvas = document.getElementById("gameCanvas");
-      const context = canvas.getContext("2d");
+      const canvas =
+        document.getElementById("gameCanvas");
 
-      if (!context) {
-        throw new Error("瀏覽器不支援 Canvas 2D。");
-      }
+      const context =
+        canvas.getContext("2d");
 
-      context.imageSmoothingEnabled = false;
+      const loadingOverlay =
+        document.getElementById("loadingOverlay");
 
-      const hpText = document.getElementById("hpText");
-      const keyText = document.getElementById("keyText");
-      const enemyText = document.getElementById("enemyText");
-      const statusText = document.getElementById("statusText");
+      const hpText =
+        document.getElementById("hpText");
+
+      const keyText =
+        document.getElementById("keyText");
+
+      const enemyText =
+        document.getElementById("enemyText");
+
+      const sceneText =
+        document.getElementById("sceneText");
+
+      const statusText =
+        document.getElementById("statusText");
 
       const reloadMapButton =
         document.getElementById("reloadMapButton");
@@ -288,44 +328,35 @@
       const resetGameButton =
         document.getElementById("resetGameButton");
 
-      const TILE_TYPES = {
-        EMPTY: 0,
-        GRASS: 1,
-        DIRT: 2,
-        STONE: 3,
-        WATER: 4,
-        FLOOR: 5,
-        WALL: 6,
-        TREE_TRUNK: 7,
-        TREE_CROWN: 8,
-        BUSH: 9,
-        DOOR: 10,
-        EXIT: 11
-      };
+      if (!context) {
+        throw new Error("瀏覽器不支援 Canvas 2D。");
+      }
 
-      const OBJECT_TYPES = {
-        PLAYER: "playerSpawn",
-        ENEMY: "enemy",
-        KEY: "key",
-        CHEST: "chest"
-      };
+      context.imageSmoothingEnabled = false;
 
       const input = Object.create(null);
 
-      let activeMap = loadMap();
-      let gameState = createGameState(activeMap);
+      let activeMap;
+      let gameState;
 
-      let camera = {
-        x: 0,
-        y: 0
-      };
+      let backgroundImage = null;
+      let backgroundReady = false;
 
       let previousTime = performance.now();
 
       let attackPressed = false;
       let interactPressed = false;
 
-      function createLayer(columns, rows, fillValue = 0) {
+      const camera = {
+        x: 0,
+        y: 0
+      };
+
+      function createLayer(
+        columns,
+        rows,
+        fillValue = 0
+      ) {
         return Array.from(
           { length: rows },
           () => Array(columns).fill(fillValue)
@@ -333,235 +364,171 @@
       }
 
       function createDefaultMap() {
-        const columns = 36;
-        const rows = 24;
+        const columns = 48;
+        const rows = 27;
 
-        const ground = createLayer(
-          columns,
-          rows,
-          TILE_TYPES.GRASS
-        );
+        const collision =
+          createLayer(columns, rows, 0);
 
-        const decoration = createLayer(columns, rows);
-        const collision = createLayer(columns, rows);
-        const foreground = createLayer(columns, rows);
+        const foreground =
+          createLayer(columns, rows, 0);
+
+        for (let x = 0; x < columns; x += 1) {
+          collision[0][x] = 1;
+          collision[rows - 1][x] = 1;
+        }
 
         for (let y = 0; y < rows; y += 1) {
-          for (let x = 0; x < columns; x += 1) {
-            const isBorder =
-              x === 0 ||
-              y === 0 ||
-              x === columns - 1 ||
-              y === rows - 1;
-
-            if (isBorder) {
-              decoration[y][x] = TILE_TYPES.WALL;
-              collision[y][x] = 1;
-            }
-          }
-        }
-
-        for (let x = 2; x <= 28; x += 1) {
-          ground[11][x] = TILE_TYPES.DIRT;
-          ground[12][x] = TILE_TYPES.DIRT;
-        }
-
-        for (let y = 3; y <= 18; y += 1) {
-          ground[y][17] = TILE_TYPES.DIRT;
-          ground[y][18] = TILE_TYPES.DIRT;
-        }
-
-        for (let y = 3; y <= 8; y += 1) {
-          for (let x = 24; x <= 31; x += 1) {
-            ground[y][x] = TILE_TYPES.WATER;
-            collision[y][x] = 1;
-          }
-        }
-
-        for (let y = 15; y <= 20; y += 1) {
-          for (let x = 5; x <= 13; x += 1) {
-            ground[y][x] = TILE_TYPES.FLOOR;
-          }
-        }
-
-        for (let x = 5; x <= 13; x += 1) {
-          decoration[15][x] = TILE_TYPES.WALL;
-          collision[15][x] = 1;
-
-          decoration[20][x] = TILE_TYPES.WALL;
-          collision[20][x] = 1;
-        }
-
-        for (let y = 15; y <= 20; y += 1) {
-          decoration[y][5] = TILE_TYPES.WALL;
-          collision[y][5] = 1;
-
-          decoration[y][13] = TILE_TYPES.WALL;
-          collision[y][13] = 1;
-        }
-
-        decoration[20][9] = TILE_TYPES.DOOR;
-        collision[20][9] = 1;
-
-        decoration[17][9] = TILE_TYPES.EXIT;
-
-        const treePositions = [
-          [4, 4],
-          [7, 5],
-          [11, 3],
-          [14, 7],
-          [21, 4],
-          [29, 13],
-          [31, 17],
-          [24, 19],
-          [18, 21],
-          [3, 17]
-        ];
-
-        for (const [x, y] of treePositions) {
-          decoration[y][x] = TILE_TYPES.TREE_TRUNK;
-          collision[y][x] = 1;
-
-          foreground[y - 1][x] = TILE_TYPES.TREE_CROWN;
-
-          if (x > 0) {
-            foreground[y - 1][x - 1] =
-              TILE_TYPES.TREE_CROWN;
-          }
-
-          if (x < columns - 1) {
-            foreground[y - 1][x + 1] =
-              TILE_TYPES.TREE_CROWN;
-          }
-        }
-
-        const bushPositions = [
-          [8, 8],
-          [9, 8],
-          [10, 8],
-          [22, 14],
-          [23, 14],
-          [27, 20]
-        ];
-
-        for (const [x, y] of bushPositions) {
-          decoration[y][x] = TILE_TYPES.BUSH;
-          collision[y][x] = 1;
+          collision[y][0] = 1;
+          collision[y][columns - 1] = 1;
         }
 
         return {
-          version: 2,
+          version: 3,
+
           columns,
           rows,
           tileSize: TILE_SIZE,
 
+          background: {
+            assetId: "starting-area",
+            name: "Starting Area",
+            src: "./assets/BG/Starting%20Area.png",
+            opacity: 1,
+            visible: true
+          },
+
+          assets: {
+            backgrounds: [
+              {
+                id: "starting-area",
+                name: "Starting Area",
+                src: "./assets/BG/Starting%20Area.png"
+              }
+            ]
+          },
+
           layers: {
-            ground,
-            decoration,
             collision,
             foreground
           },
 
           objects: [
             {
-              type: OBJECT_TYPES.PLAYER,
-              x: 3,
-              y: 11
-            },
-            {
-              type: OBJECT_TYPES.ENEMY,
-              x: 13,
-              y: 10
-            },
-            {
-              type: OBJECT_TYPES.ENEMY,
-              x: 21,
+              type: "playerSpawn",
+              x: 5,
               y: 13
             },
             {
-              type: OBJECT_TYPES.ENEMY,
-              x: 28,
-              y: 18
+              type: "enemy",
+              x: 18,
+              y: 12
             },
             {
-              type: OBJECT_TYPES.KEY,
-              x: 30,
+              type: "enemy",
+              x: 28,
+              y: 16
+            },
+            {
+              type: "key",
+              x: 34,
               y: 10
             },
             {
-              type: OBJECT_TYPES.CHEST,
-              x: 9,
-              y: 17
+              type: "chest",
+              x: 40,
+              y: 18
+            },
+            {
+              type: "exit",
+              x: 44,
+              y: 13
             }
           ]
         };
       }
 
-      function deepClone(value) {
-        return JSON.parse(JSON.stringify(value));
+      function normalizeLayer(
+        source,
+        columns,
+        rows
+      ) {
+        return Array.from(
+          { length: rows },
+          (_, y) =>
+            Array.from(
+              { length: columns },
+              (_, x) => source?.[y]?.[x] ?? 0
+            )
+        );
       }
 
-      function normalizeMap(mapData) {
+      function normalizeMap(data) {
         if (
-          !mapData ||
-          !Number.isInteger(mapData.columns) ||
-          !Number.isInteger(mapData.rows) ||
-          !mapData.layers
+          !data ||
+          !Number.isInteger(data.columns) ||
+          !Number.isInteger(data.rows)
         ) {
-          throw new Error("地圖資料格式錯誤。");
+          throw new Error("地圖格式錯誤。");
         }
 
-        const requiredLayers = [
-          "ground",
-          "decoration",
-          "collision",
-          "foreground"
-        ];
+        data.tileSize = TILE_SIZE;
 
-        for (const layerName of requiredLayers) {
-          if (!Array.isArray(mapData.layers[layerName])) {
-            mapData.layers[layerName] = createLayer(
-              mapData.columns,
-              mapData.rows
-            );
-          }
+        if (!data.layers) {
+          data.layers = {};
         }
 
-        if (!Array.isArray(mapData.objects)) {
-          mapData.objects = [];
+        data.layers.collision =
+          normalizeLayer(
+            data.layers.collision,
+            data.columns,
+            data.rows
+          );
+
+        data.layers.foreground =
+          normalizeLayer(
+            data.layers.foreground,
+            data.columns,
+            data.rows
+          );
+
+        if (!Array.isArray(data.objects)) {
+          data.objects = [];
         }
 
-        mapData.tileSize = TILE_SIZE;
+        if (!data.assets) {
+          data.assets = {
+            backgrounds: []
+          };
+        }
 
-        return mapData;
+        if (!Array.isArray(data.assets.backgrounds)) {
+          data.assets.backgrounds = [];
+        }
+
+        return data;
       }
 
-      function loadMap() {
+      function loadMapData() {
         try {
-          const storedMap = localStorage.getItem(STORAGE_KEY);
+          const stored =
+            localStorage.getItem(STORAGE_KEY);
 
-          if (!storedMap) {
+          if (!stored) {
             return createDefaultMap();
           }
 
-          return normalizeMap(JSON.parse(storedMap));
+          return normalizeMap(
+            JSON.parse(stored)
+          );
         } catch (error) {
-          console.error("地圖讀取失敗：", error);
+          console.error(
+            "地圖讀取失敗：",
+            error
+          );
+
           return createDefaultMap();
         }
-      }
-
-      function findPlayerSpawn(mapData) {
-        return (
-          mapData.objects.find(
-            (object) =>
-              object.type === OBJECT_TYPES.PLAYER
-          ) || {
-            type: OBJECT_TYPES.PLAYER,
-            x: 2,
-            y: 2
-          }
-        );
       }
 
       function tileCenter(tileCoordinate) {
@@ -571,18 +538,30 @@
         );
       }
 
-      function createGameState(mapData) {
-        const spawn = findPlayerSpawn(mapData);
+      function findObject(type) {
+        return activeMap.objects.find(
+          (object) => object.type === type
+        );
+      }
+
+      function createGameState() {
+        const spawn =
+          findObject("playerSpawn") || {
+            x: 2,
+            y: 2
+          };
 
         return {
           player: {
             x: tileCenter(spawn.x),
             y: tileCenter(spawn.y),
+
             radius: 12,
             speed: 190,
 
             maxHp: 5,
             hp: 5,
+
             keys: 0,
 
             directionX: 0,
@@ -592,21 +571,19 @@
             invulnerableTime: 0
           },
 
-          enemies: mapData.objects
+          enemies: activeMap.objects
             .filter(
               (object) =>
-                object.type === OBJECT_TYPES.ENEMY
+                object.type === "enemy"
             )
             .map((object, index) => ({
               id: index,
+
               x: tileCenter(object.x),
               y: tileCenter(object.y),
 
-              spawnX: tileCenter(object.x),
-              spawnY: tileCenter(object.y),
-
               radius: 12,
-              speed: 55,
+              speed: 56,
 
               maxHp: 3,
               hp: 3,
@@ -615,22 +592,23 @@
               dead: false
             })),
 
-          pickups: mapData.objects
-            .filter((object) =>
-              [
-                OBJECT_TYPES.KEY,
-                OBJECT_TYPES.CHEST
-              ].includes(object.type)
+          pickups: activeMap.objects
+            .filter(
+              (object) =>
+                object.type === "key" ||
+                object.type === "chest"
             )
             .map((object, index) => ({
               id: index,
+
               type: object.type,
+
               x: tileCenter(object.x),
               y: tileCenter(object.y),
+
               collected: false
             })),
 
-          openDoors: new Set(),
           completed: false
         };
       }
@@ -639,7 +617,76 @@
         statusText.textContent = message;
       }
 
-      function getTileCoordinates(pixelX, pixelY) {
+      function loadBackground() {
+        backgroundReady = false;
+        backgroundImage = null;
+
+        const source =
+          activeMap.background?.src;
+
+        sceneText.textContent =
+          activeMap.background?.name ||
+          "無背景";
+
+        if (
+          !source ||
+          activeMap.background?.visible === false
+        ) {
+          loadingOverlay.classList.add("hidden");
+          backgroundReady = false;
+          return;
+        }
+
+        loadingOverlay.textContent =
+          "場景載入中";
+
+        loadingOverlay.classList.remove("hidden");
+
+        const image = new Image();
+
+        image.addEventListener(
+          "load",
+          () => {
+            backgroundImage = image;
+            backgroundReady = true;
+
+            loadingOverlay.classList.add("hidden");
+
+            setStatus("場景載入完成");
+          }
+        );
+
+        image.addEventListener(
+          "error",
+          () => {
+            backgroundImage = null;
+            backgroundReady = false;
+
+            loadingOverlay.textContent =
+              "背景圖片載入失敗";
+
+            setStatus("背景圖片載入失敗");
+          }
+        );
+
+        image.src = source;
+      }
+
+      function initializeGame() {
+        activeMap = loadMapData();
+        gameState = createGameState();
+
+        camera.x = 0;
+        camera.y = 0;
+
+        loadBackground();
+        updateInterface();
+      }
+
+      function getTilePosition(
+        pixelX,
+        pixelY
+      ) {
         return {
           x: Math.floor(pixelX / TILE_SIZE),
           y: Math.floor(pixelY / TILE_SIZE)
@@ -655,57 +702,21 @@
         );
       }
 
-      function getLayerTile(layerName, tileX, tileY) {
-        if (!isInsideMap(tileX, tileY)) {
-          return 0;
-        }
-
-        return activeMap.layers[layerName][tileY][tileX];
-      }
-
-      function isDoorClosed(tileX, tileY) {
-        const decorationTile = getLayerTile(
-          "decoration",
-          tileX,
-          tileY
-        );
-
-        return (
-          decorationTile === TILE_TYPES.DOOR &&
-          !gameState.openDoors.has(`${tileX},${tileY}`)
-        );
-      }
-
-      function isBlockedPoint(pixelX, pixelY) {
-        const tile = getTileCoordinates(pixelX, pixelY);
+      function isBlockedPoint(
+        pixelX,
+        pixelY
+      ) {
+        const tile =
+          getTilePosition(pixelX, pixelY);
 
         if (!isInsideMap(tile.x, tile.y)) {
           return true;
         }
 
-        if (
-          getLayerTile(
-            "collision",
-            tile.x,
-            tile.y
-          ) === 1
-        ) {
-          if (isDoorClosed(tile.x, tile.y)) {
-            return true;
-          }
-
-          const decorationTile = getLayerTile(
-            "decoration",
-            tile.x,
-            tile.y
-          );
-
-          if (decorationTile !== TILE_TYPES.DOOR) {
-            return true;
-          }
-        }
-
-        return false;
+        return (
+          activeMap.layers.collision
+            [tile.y][tile.x] === 1
+        );
       }
 
       function isBlockedPosition(
@@ -713,7 +724,7 @@
         pixelY,
         radius
       ) {
-        const collisionPoints = [
+        const points = [
           [pixelX - radius, pixelY - radius],
           [pixelX + radius, pixelY - radius],
           [pixelX - radius, pixelY + radius],
@@ -725,13 +736,18 @@
           [pixelX + radius, pixelY]
         ];
 
-        return collisionPoints.some(([x, y]) =>
-          isBlockedPoint(x, y)
+        return points.some(
+          ([x, y]) => isBlockedPoint(x, y)
         );
       }
 
-      function moveEntity(entity, moveX, moveY) {
-        const nextX = entity.x + moveX;
+      function moveEntity(
+        entity,
+        movementX,
+        movementY
+      ) {
+        const nextX =
+          entity.x + movementX;
 
         if (
           !isBlockedPosition(
@@ -743,7 +759,8 @@
           entity.x = nextX;
         }
 
-        const nextY = entity.y + moveY;
+        const nextY =
+          entity.y + movementY;
 
         if (
           !isBlockedPosition(
@@ -756,78 +773,30 @@
         }
       }
 
-      function distanceBetween(entityA, entityB) {
+      function distanceBetween(
+        first,
+        second
+      ) {
         return Math.hypot(
-          entityA.x - entityB.x,
-          entityA.y - entityB.y
+          first.x - second.x,
+          first.y - second.y
         );
       }
 
       function resetPlayerPosition() {
-        const spawn = findPlayerSpawn(activeMap);
+        const spawn =
+          findObject("playerSpawn") || {
+            x: 2,
+            y: 2
+          };
 
-        gameState.player.x = tileCenter(spawn.x);
-        gameState.player.y = tileCenter(spawn.y);
+        gameState.player.x =
+          tileCenter(spawn.x);
+
+        gameState.player.y =
+          tileCenter(spawn.y);
 
         setStatus("返回出生點");
-      }
-
-      function reloadMap() {
-        activeMap = loadMap();
-        gameState = createGameState(activeMap);
-
-        camera.x = 0;
-        camera.y = 0;
-
-        setStatus("已重新讀取地圖");
-      }
-
-      function resetGame() {
-        gameState = createGameState(activeMap);
-
-        camera.x = 0;
-        camera.y = 0;
-
-        setStatus("遊戲已重置");
-      }
-
-      function attemptInteraction() {
-        const player = gameState.player;
-
-        const targetX =
-          player.x +
-          player.directionX *
-            TILE_SIZE *
-            0.75;
-
-        const targetY =
-          player.y +
-          player.directionY *
-            TILE_SIZE *
-            0.75;
-
-        const tile = getTileCoordinates(
-          targetX,
-          targetY
-        );
-
-        if (!isInsideMap(tile.x, tile.y)) {
-          return;
-        }
-
-        if (!isDoorClosed(tile.x, tile.y)) {
-          return;
-        }
-
-        if (player.keys <= 0) {
-          setStatus("需要一把遺跡鑰匙");
-          return;
-        }
-
-        player.keys -= 1;
-        gameState.openDoors.add(`${tile.x},${tile.y}`);
-
-        setStatus("石門已開啟");
       }
 
       function performAttack() {
@@ -839,11 +808,11 @@
 
         player.attackTime = 0.22;
 
-        const attackCenterX =
+        const attackX =
           player.x +
           player.directionX * 30;
 
-        const attackCenterY =
+        const attackY =
           player.y +
           player.directionY * 30;
 
@@ -853,8 +822,8 @@
           }
 
           const distance = Math.hypot(
-            enemy.x - attackCenterX,
-            enemy.y - attackCenterY
+            enemy.x - attackX,
+            enemy.y - attackY
           );
 
           if (distance > 36) {
@@ -864,12 +833,10 @@
           enemy.hp -= 1;
           enemy.hitTime = 0.14;
 
-          const knockbackDistance = 14;
-
           moveEntity(
             enemy,
-            player.directionX * knockbackDistance,
-            player.directionY * knockbackDistance
+            player.directionX * 14,
+            player.directionY * 14
           );
 
           if (enemy.hp <= 0) {
@@ -879,6 +846,10 @@
             setStatus("攻擊命中");
           }
         }
+      }
+
+      function attemptInteraction() {
+        setStatus("目前附近沒有可互動物件");
       }
 
       function updatePlayer(deltaTime) {
@@ -903,7 +874,10 @@
           movementX += 1;
         }
 
-        if (movementX !== 0 || movementY !== 0) {
+        if (
+          movementX !== 0 ||
+          movementY !== 0
+        ) {
           const length = Math.hypot(
             movementX,
             movementY
@@ -917,8 +891,13 @@
 
           moveEntity(
             player,
-            movementX * player.speed * deltaTime,
-            movementY * player.speed * deltaTime
+            movementX *
+              player.speed *
+              deltaTime,
+
+            movementY *
+              player.speed *
+              deltaTime
           );
         }
 
@@ -926,13 +905,15 @@
           performAttack();
         }
 
-        attackPressed = Boolean(input.space);
+        attackPressed =
+          Boolean(input.space);
 
         if (input.e && !interactPressed) {
           attemptInteraction();
         }
 
-        interactPressed = Boolean(input.e);
+        interactPressed =
+          Boolean(input.e);
 
         player.attackTime = Math.max(
           0,
@@ -958,52 +939,40 @@
             enemy.hitTime - deltaTime
           );
 
-          const distanceToPlayer =
+          const distance =
             distanceBetween(enemy, player);
 
           if (
-            distanceToPlayer < 260 &&
-            distanceToPlayer > 28
+            distance < 250 &&
+            distance > 28
           ) {
-            const movementX =
+            const directionX =
               (player.x - enemy.x) /
-              distanceToPlayer;
+              distance;
 
-            const movementY =
+            const directionY =
               (player.y - enemy.y) /
-              distanceToPlayer;
+              distance;
 
             moveEntity(
               enemy,
-              movementX * enemy.speed * deltaTime,
-              movementY * enemy.speed * deltaTime
+
+              directionX *
+                enemy.speed *
+                deltaTime,
+
+              directionY *
+                enemy.speed *
+                deltaTime
             );
           }
 
           if (
-            distanceToPlayer <= 27 &&
+            distance <= 27 &&
             player.invulnerableTime <= 0
           ) {
             player.hp -= 1;
             player.invulnerableTime = 1;
-
-            const knockbackX =
-              player.x - enemy.x;
-
-            const knockbackY =
-              player.y - enemy.y;
-
-            const knockbackLength =
-              Math.hypot(
-                knockbackX,
-                knockbackY
-              ) || 1;
-
-            moveEntity(
-              player,
-              (knockbackX / knockbackLength) * 24,
-              (knockbackY / knockbackLength) * 24
-            );
 
             setStatus("受到敵人攻擊");
 
@@ -1012,7 +981,8 @@
               player.keys = 0;
 
               resetPlayerPosition();
-              setStatus("你在遺跡入口重新甦醒");
+
+              setStatus("你在出生區重新甦醒");
             }
           }
         }
@@ -1037,38 +1007,39 @@
 
           pickup.collected = true;
 
-          if (pickup.type === OBJECT_TYPES.KEY) {
+          if (pickup.type === "key") {
             player.keys += 1;
             setStatus("取得遺跡鑰匙");
           }
 
-          if (
-            pickup.type ===
-            OBJECT_TYPES.CHEST
-          ) {
+          if (pickup.type === "chest") {
             player.hp = player.maxHp;
-            setStatus("開啟寶箱，生命已恢復");
+            setStatus("開啟寶箱，生命恢復");
           }
         }
       }
 
       function updateExit() {
-        const playerTile = getTileCoordinates(
-          gameState.player.x,
-          gameState.player.y
-        );
+        const exit =
+          findObject("exit");
 
-        const decorationTile = getLayerTile(
-          "decoration",
-          playerTile.x,
-          playerTile.y
-        );
+        if (!exit) {
+          return;
+        }
+
+        const exitPosition = {
+          x: tileCenter(exit.x),
+          y: tileCenter(exit.y)
+        };
 
         if (
-          decorationTile === TILE_TYPES.EXIT
+          distanceBetween(
+            gameState.player,
+            exitPosition
+          ) < 28
         ) {
           gameState.completed = true;
-          setStatus("遺跡探索完成");
+          setStatus("出生區探索完成");
         }
       }
 
@@ -1087,44 +1058,39 @@
           gameState.player.y -
           VIEW_HEIGHT / 2;
 
-        const maxCameraX = Math.max(
+        const maxX = Math.max(
           0,
           worldWidth - VIEW_WIDTH
         );
 
-        const maxCameraY = Math.max(
+        const maxY = Math.max(
           0,
           worldHeight - VIEW_HEIGHT
         );
 
-        const clampedTargetX = Math.min(
-          maxCameraX,
+        const finalX = Math.min(
+          maxX,
           Math.max(0, targetX)
         );
 
-        const clampedTargetY = Math.min(
-          maxCameraY,
+        const finalY = Math.min(
+          maxY,
           Math.max(0, targetY)
         );
 
-        const cameraFollowSpeed =
+        const followSpeed =
           Math.min(1, deltaTime * 8);
 
         camera.x +=
-          (clampedTargetX - camera.x) *
-          cameraFollowSpeed;
+          (finalX - camera.x) *
+          followSpeed;
 
         camera.y +=
-          (clampedTargetY - camera.y) *
-          cameraFollowSpeed;
+          (finalY - camera.y) *
+          followSpeed;
       }
 
       function updateInterface() {
-        const aliveEnemies =
-          gameState.enemies.filter(
-            (enemy) => !enemy.dead
-          ).length;
-
         hpText.textContent =
           `${gameState.player.hp} / ` +
           `${gameState.player.maxHp}`;
@@ -1133,7 +1099,11 @@
           String(gameState.player.keys);
 
         enemyText.textContent =
-          String(aliveEnemies);
+          String(
+            gameState.enemies.filter(
+              (enemy) => !enemy.dead
+            ).length
+          );
       }
 
       function update(deltaTime) {
@@ -1148,418 +1118,69 @@
         updateInterface();
       }
 
-      function drawGroundTile(tile, screenX, screenY) {
-        if (tile === TILE_TYPES.GRASS) {
-          context.fillStyle = "#47794b";
-          context.fillRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          context.fillStyle =
-            "rgba(226, 239, 193, 0.12)";
-
-          context.fillRect(
-            screenX + 8,
-            screenY + 10,
-            2,
-            5
-          );
-
-          context.fillRect(
-            screenX + 29,
-            screenY + 25,
-            2,
-            4
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.DIRT) {
-          context.fillStyle = "#80684a";
-
-          context.fillRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          context.fillStyle =
-            "rgba(54, 38, 23, 0.18)";
-
-          context.fillRect(
-            screenX + 7,
-            screenY + 8,
-            4,
-            3
-          );
-
-          context.fillRect(
-            screenX + 25,
-            screenY + 27,
-            5,
-            3
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.STONE) {
-          context.fillStyle = "#626a62";
-
-          context.fillRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          context.strokeStyle =
-            "rgba(20, 25, 21, 0.24)";
-
-          context.strokeRect(
-            screenX + 2,
-            screenY + 2,
-            TILE_SIZE - 4,
-            TILE_SIZE - 4
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.WATER) {
-          context.fillStyle = "#32697b";
-
-          context.fillRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          context.fillStyle =
-            "rgba(213, 239, 244, 0.18)";
-
-          context.fillRect(
-            screenX + 5,
-            screenY + 11,
-            26,
-            3
-          );
-
-          context.fillRect(
-            screenX + 13,
-            screenY + 27,
-            20,
-            3
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.FLOOR) {
-          context.fillStyle = "#66655b";
-
-          context.fillRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          context.strokeStyle =
-            "rgba(28, 28, 24, 0.25)";
-
-          context.strokeRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          return;
-        }
-
-        context.fillStyle = "#47794b";
+      function drawBackground() {
+        context.fillStyle = "#233126";
 
         context.fillRect(
-          screenX,
-          screenY,
-          TILE_SIZE,
-          TILE_SIZE
-        );
-      }
-
-      function drawDecorationTile(
-        tile,
-        screenX,
-        screenY,
-        tileX,
-        tileY
-      ) {
-        if (tile === TILE_TYPES.WALL) {
-          context.fillStyle = "#242d27";
-
-          context.fillRect(
-            screenX,
-            screenY,
-            TILE_SIZE,
-            TILE_SIZE
-          );
-
-          context.fillStyle = "#364139";
-
-          context.fillRect(
-            screenX + 3,
-            screenY + 3,
-            TILE_SIZE - 6,
-            12
-          );
-
-          context.strokeStyle =
-            "rgba(0, 0, 0, 0.28)";
-
-          context.strokeRect(
-            screenX + 3,
-            screenY + 3,
-            TILE_SIZE - 6,
-            TILE_SIZE - 6
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.TREE_TRUNK) {
-          context.fillStyle = "#704c2e";
-
-          context.fillRect(
-            screenX + 14,
-            screenY + 8,
-            12,
-            28
-          );
-
-          context.fillStyle = "#4f3421";
-
-          context.fillRect(
-            screenX + 17,
-            screenY + 10,
-            3,
-            24
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.BUSH) {
-          context.fillStyle = "#294f31";
-
-          context.beginPath();
-
-          context.arc(
-            screenX + 13,
-            screenY + 23,
-            11,
-            0,
-            Math.PI * 2
-          );
-
-          context.arc(
-            screenX + 26,
-            screenY + 20,
-            13,
-            0,
-            Math.PI * 2
-          );
-
-          context.fill();
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.DOOR) {
-          if (
-            gameState.openDoors.has(
-              `${tileX},${tileY}`
-            )
-          ) {
-            return;
-          }
-
-          context.fillStyle = "#744f2c";
-
-          context.fillRect(
-            screenX + 6,
-            screenY + 2,
-            TILE_SIZE - 12,
-            TILE_SIZE - 3
-          );
-
-          context.fillStyle = "#d7b56d";
-
-          context.fillRect(
-            screenX + 27,
-            screenY + 19,
-            5,
-            5
-          );
-
-          return;
-        }
-
-        if (tile === TILE_TYPES.EXIT) {
-          context.fillStyle =
-            "rgba(217, 186, 100, 0.28)";
-
-          context.fillRect(
-            screenX + 5,
-            screenY + 5,
-            TILE_SIZE - 10,
-            TILE_SIZE - 10
-          );
-
-          context.strokeStyle = "#ead17d";
-          context.lineWidth = 3;
-
-          context.strokeRect(
-            screenX + 8,
-            screenY + 8,
-            TILE_SIZE - 16,
-            TILE_SIZE - 16
-          );
-
-          context.lineWidth = 1;
-        }
-      }
-
-      function drawForegroundTile(
-        tile,
-        screenX,
-        screenY
-      ) {
-        if (tile !== TILE_TYPES.TREE_CROWN) {
-          return;
-        }
-
-        context.fillStyle =
-          "rgba(32, 78, 40, 0.94)";
-
-        context.beginPath();
-
-        context.arc(
-          screenX + 12,
-          screenY + 23,
-          17,
           0,
-          Math.PI * 2
-        );
-
-        context.arc(
-          screenX + 25,
-          screenY + 15,
-          19,
           0,
-          Math.PI * 2
+          VIEW_WIDTH,
+          VIEW_HEIGHT
         );
 
-        context.arc(
-          screenX + 34,
-          screenY + 26,
-          16,
-          0,
-          Math.PI * 2
-        );
-
-        context.fill();
-
-        context.fillStyle =
-          "rgba(119, 160, 96, 0.20)";
-
-        context.beginPath();
-
-        context.arc(
-          screenX + 23,
-          screenY + 12,
-          9,
-          0,
-          Math.PI * 2
-        );
-
-        context.fill();
-      }
-
-      function getVisibleTileBounds() {
-        const startX = Math.max(
-          0,
-          Math.floor(camera.x / TILE_SIZE) - 1
-        );
-
-        const startY = Math.max(
-          0,
-          Math.floor(camera.y / TILE_SIZE) - 1
-        );
-
-        const endX = Math.min(
-          activeMap.columns - 1,
-          Math.ceil(
-            (camera.x + VIEW_WIDTH) /
-            TILE_SIZE
-          ) + 1
-        );
-
-        const endY = Math.min(
-          activeMap.rows - 1,
-          Math.ceil(
-            (camera.y + VIEW_HEIGHT) /
-            TILE_SIZE
-          ) + 1
-        );
-
-        return {
-          startX,
-          startY,
-          endX,
-          endY
-        };
-      }
-
-      function drawLayer(layerName, drawFunction) {
-        const bounds = getVisibleTileBounds();
-        const layer = activeMap.layers[layerName];
-
-        for (
-          let tileY = bounds.startY;
-          tileY <= bounds.endY;
-          tileY += 1
+        if (
+          !backgroundReady ||
+          !backgroundImage
         ) {
-          for (
-            let tileX = bounds.startX;
-            tileX <= bounds.endX;
-            tileX += 1
-          ) {
-            const tile = layer[tileY][tileX];
-
-            const screenX =
-              tileX * TILE_SIZE -
-              camera.x;
-
-            const screenY =
-              tileY * TILE_SIZE -
-              camera.y;
-
-            drawFunction(
-              tile,
-              screenX,
-              screenY,
-              tileX,
-              tileY
-            );
-          }
+          return;
         }
+
+        const worldWidth =
+          activeMap.columns * TILE_SIZE;
+
+        const worldHeight =
+          activeMap.rows * TILE_SIZE;
+
+        const scaleX =
+          backgroundImage.naturalWidth /
+          worldWidth;
+
+        const scaleY =
+          backgroundImage.naturalHeight /
+          worldHeight;
+
+        const sourceX =
+          camera.x * scaleX;
+
+        const sourceY =
+          camera.y * scaleY;
+
+        const sourceWidth =
+          VIEW_WIDTH * scaleX;
+
+        const sourceHeight =
+          VIEW_HEIGHT * scaleY;
+
+        context.save();
+
+        context.globalAlpha =
+          activeMap.background?.opacity ?? 1;
+
+        context.drawImage(
+          backgroundImage,
+
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+
+          0,
+          0,
+          VIEW_WIDTH,
+          VIEW_HEIGHT
+        );
+
+        context.restore();
       }
 
       function drawPickup(pickup) {
@@ -1573,7 +1194,7 @@
         const screenY =
           pickup.y - camera.y;
 
-        if (pickup.type === OBJECT_TYPES.KEY) {
+        if (pickup.type === "key") {
           context.fillStyle = "#eed16e";
 
           context.beginPath();
@@ -1594,19 +1215,9 @@
             16,
             4
           );
-
-          context.fillRect(
-            screenX + 10,
-            screenY,
-            3,
-            7
-          );
         }
 
-        if (
-          pickup.type ===
-          OBJECT_TYPES.CHEST
-        ) {
+        if (pickup.type === "chest") {
           context.fillStyle = "#795333";
 
           context.fillRect(
@@ -1616,16 +1227,7 @@
             22
           );
 
-          context.fillStyle = "#b78a45";
-
-          context.fillRect(
-            screenX - 15,
-            screenY - 2,
-            30,
-            4
-          );
-
-          context.fillStyle = "#e1be69";
+          context.fillStyle = "#d7b56d";
 
           context.fillRect(
             screenX - 2,
@@ -1664,7 +1266,7 @@
 
         context.fill();
 
-        context.fillStyle = "#311a20";
+        context.fillStyle = "#321a20";
 
         context.fillRect(
           screenX - 7,
@@ -1677,28 +1279,6 @@
           screenX + 3,
           screenY - 4,
           4,
-          4
-        );
-
-        const hpRatio =
-          enemy.hp / enemy.maxHp;
-
-        context.fillStyle =
-          "rgba(0, 0, 0, 0.55)";
-
-        context.fillRect(
-          screenX - 15,
-          screenY - 22,
-          30,
-          4
-        );
-
-        context.fillStyle = "#c45b5b";
-
-        context.fillRect(
-          screenX - 15,
-          screenY - 22,
-          30 * hpRatio,
           4
         );
       }
@@ -1739,22 +1319,16 @@
 
         context.fillStyle = "#2b3127";
 
-        const eyeOffsetX =
-          player.directionX * 3;
-
-        const eyeOffsetY =
-          player.directionY * 3;
-
         context.fillRect(
-          screenX - 6 + eyeOffsetX,
-          screenY - 4 + eyeOffsetY,
+          screenX - 6,
+          screenY - 4,
           4,
           4
         );
 
         context.fillRect(
-          screenX + 2 + eyeOffsetX,
-          screenY - 4 + eyeOffsetY,
+          screenX + 2,
+          screenY - 4,
           4,
           4
         );
@@ -1762,10 +1336,11 @@
         context.restore();
 
         if (player.attackTime > 0) {
-          const angle = Math.atan2(
-            player.directionY,
-            player.directionX
-          );
+          const angle =
+            Math.atan2(
+              player.directionY,
+              player.directionX
+            );
 
           context.strokeStyle = "#f5e2a1";
           context.lineWidth = 6;
@@ -1787,70 +1362,46 @@
         }
       }
 
-      function drawWorld() {
-        context.clearRect(
-          0,
-          0,
-          VIEW_WIDTH,
-          VIEW_HEIGHT
-        );
+      function drawForeground() {
+        const layer =
+          activeMap.layers.foreground;
 
-        drawLayer(
-          "ground",
-          drawGroundTile
-        );
+        for (
+          let y = 0;
+          y < activeMap.rows;
+          y += 1
+        ) {
+          for (
+            let x = 0;
+            x < activeMap.columns;
+            x += 1
+          ) {
+            if (layer[y][x] !== 1) {
+              continue;
+            }
 
-        drawLayer(
-          "decoration",
-          drawDecorationTile
-        );
+            const screenX =
+              x * TILE_SIZE -
+              camera.x;
 
-        for (const pickup of gameState.pickups) {
-          drawPickup(pickup);
+            const screenY =
+              y * TILE_SIZE -
+              camera.y;
+
+            context.fillStyle =
+              "rgba(21, 46, 27, 0.72)";
+
+            context.fillRect(
+              screenX,
+              screenY,
+              TILE_SIZE,
+              TILE_SIZE
+            );
+          }
         }
-
-        for (const enemy of gameState.enemies) {
-          drawEnemy(enemy);
-        }
-
-        drawPlayer();
-
-        drawLayer(
-          "foreground",
-          drawForegroundTile
-        );
       }
 
-      function drawScreenOverlay() {
-        const gradient =
-          context.createRadialGradient(
-            VIEW_WIDTH / 2,
-            VIEW_HEIGHT / 2,
-            140,
-            VIEW_WIDTH / 2,
-            VIEW_HEIGHT / 2,
-            560
-          );
-
-        gradient.addColorStop(
-          0,
-          "rgba(0, 0, 0, 0)"
-        );
-
-        gradient.addColorStop(
-          1,
-          "rgba(0, 0, 0, 0.34)"
-        );
-
-        context.fillStyle = gradient;
-
-        context.fillRect(
-          0,
-          0,
-          VIEW_WIDTH,
-          VIEW_HEIGHT
-        );
-
+      function drawCompletedOverlay() {
         if (!gameState.completed) {
           return;
         }
@@ -1873,9 +1424,9 @@
           "700 40px system-ui";
 
         context.fillText(
-          "遺跡探索完成",
+          "出生區探索完成",
           VIEW_WIDTH / 2,
-          VIEW_HEIGHT / 2 - 20
+          VIEW_HEIGHT / 2 - 18
         );
 
         context.fillStyle = "#ffffff";
@@ -1883,15 +1434,33 @@
           "18px system-ui";
 
         context.fillText(
-          "你已抵達迷霧深處的古代祭壇",
+          "你已找到前往迷霧遺跡的道路",
           VIEW_WIDTH / 2,
-          VIEW_HEIGHT / 2 + 28
+          VIEW_HEIGHT / 2 + 30
         );
       }
 
       function draw() {
-        drawWorld();
-        drawScreenOverlay();
+        context.clearRect(
+          0,
+          0,
+          VIEW_WIDTH,
+          VIEW_HEIGHT
+        );
+
+        drawBackground();
+
+        for (const pickup of gameState.pickups) {
+          drawPickup(pickup);
+        }
+
+        for (const enemy of gameState.enemies) {
+          drawEnemy(enemy);
+        }
+
+        drawPlayer();
+        drawForeground();
+        drawCompletedOverlay();
       }
 
       function gameLoop(currentTime) {
@@ -1911,7 +1480,8 @@
       window.addEventListener(
         "keydown",
         (event) => {
-          const key = event.key.toLowerCase();
+          const key =
+            event.key.toLowerCase();
 
           input[key] = true;
 
@@ -1936,14 +1506,17 @@
       window.addEventListener(
         "keyup",
         (event) => {
-          input[event.key.toLowerCase()] = false;
+          input[event.key.toLowerCase()] =
+            false;
         }
       );
 
       window.addEventListener(
         "blur",
         () => {
-          for (const key of Object.keys(input)) {
+          for (
+            const key of Object.keys(input)
+          ) {
             input[key] = false;
           }
 
@@ -1954,14 +1527,24 @@
 
       reloadMapButton.addEventListener(
         "click",
-        reloadMap
+        () => {
+          initializeGame();
+          setStatus("已重新讀取地圖");
+        }
       );
 
       resetGameButton.addEventListener(
         "click",
-        resetGame
+        () => {
+          gameState = createGameState();
+          camera.x = 0;
+          camera.y = 0;
+
+          setStatus("遊戲進度已重置");
+        }
       );
 
+      initializeGame();
       requestAnimationFrame(gameLoop);
     })();
   </script>
