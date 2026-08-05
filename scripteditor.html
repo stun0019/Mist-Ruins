@@ -1,401 +1,1808 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ScriptEditor 地圖編輯器</title>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>迷霧遺跡｜地圖編輯器</title>
+
   <style>
-    :root{
-      --bg:#111712;--panel:#1b241d;--panel2:#253029;--text:#f3f1df;
-      --muted:#aeb9ad;--accent:#d7b56d;--line:#3b493d;
+    :root {
+      --background: #0b100c;
+      --panel: #18211a;
+      --panel-light: #222d25;
+      --border: #3c493f;
+      --text: #f2efdf;
+      --muted: #a9b3aa;
+      --accent: #d7b56d;
+      --button: #28362c;
+      --button-hover: #35483a;
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:#0c110d;
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+
+    * {
+      box-sizing: border-box;
     }
-    header{
-      position:sticky;top:0;z-index:10;
-      display:flex;justify-content:space-between;align-items:center;gap:14px;
-      padding:14px 18px;background:rgba(17,23,18,.96);
-      border-bottom:1px solid var(--line);
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--background);
+      color: var(--text);
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Noto Sans TC",
+        sans-serif;
     }
-    h1{font-size:20px;margin:0}
-    .layout{
-      display:grid;
-      grid-template-columns:240px 1fr 300px;
-      gap:14px;padding:14px;
-      min-height:calc(100vh - 64px);
+
+    body {
+      min-height: 100vh;
     }
-    .panel{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:14px;
+
+    .editor-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+
+      padding: 14px 18px;
+
+      background: rgba(12, 17, 13, 0.96);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
     }
-    .tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    button,.button{
-      border:1px solid #59675b;
-      background:#2a372d;color:var(--text);
-      padding:10px;border-radius:9px;cursor:pointer;
-      font-weight:700;text-decoration:none;text-align:center;
+
+    .editor-header h1 {
+      margin: 0;
+      font-size: 20px;
     }
-    button:hover,.button:hover{background:#354538}
-    button.active{outline:2px solid var(--accent);background:#46543f}
-    .tile-preview{
-      width:22px;height:22px;display:inline-block;
-      border-radius:4px;margin-right:6px;vertical-align:middle;
+
+    .save-status {
+      margin-top: 3px;
+      color: var(--accent);
+      font-size: 13px;
     }
-    .canvas-wrap{
-      overflow:auto;
-      background:#070a08;
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:14px;
-      display:grid;
-      place-items:start center;
+
+    .editor-layout {
+      display: grid;
+      grid-template-columns:
+        250px
+        minmax(0, 1fr)
+        300px;
+
+      gap: 14px;
+      padding: 14px;
     }
-    canvas{
-      image-rendering:pixelated;
-      background:#3f7747;
-      border:1px solid #607064;
-      cursor:crosshair;
-      max-width:none;
+
+    .panel {
+      min-width: 0;
+      padding: 15px;
+
+      border: 1px solid var(--border);
+      border-radius: 14px;
+
+      background: var(--panel);
     }
-    label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
-    input,textarea,select{
-      width:100%;
-      background:#101612;color:var(--text);
-      border:1px solid #47544a;border-radius:8px;
-      padding:9px;
+
+    .panel-title {
+      margin-bottom: 12px;
+      font-weight: 700;
     }
-    textarea{min-height:280px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:12px}
-    .stack{display:grid;gap:8px}
-    .hint{font-size:12px;line-height:1.6;color:var(--muted);margin-top:12px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .status{font-size:13px;color:var(--accent)}
-    @media(max-width:1000px){
-      .layout{grid-template-columns:1fr}
-      .canvas-wrap{order:-1}
+
+    .canvas-panel {
+      min-width: 0;
+      min-height: 680px;
+      padding: 14px;
+
+      overflow: auto;
+
+      border: 1px solid var(--border);
+      border-radius: 14px;
+
+      background: #070a08;
+    }
+
+    canvas {
+      display: block;
+
+      border: 1px solid #5b6a5e;
+
+      background: #47794b;
+
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+
+    button,
+    .button {
+      width: 100%;
+      padding: 10px 12px;
+
+      border: 1px solid #556459;
+      border-radius: 9px;
+
+      background: var(--button);
+      color: var(--text);
+
+      font: inherit;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+
+      cursor: pointer;
+    }
+
+    button:hover,
+    .button:hover {
+      background: var(--button-hover);
+    }
+
+    button.active {
+      outline: 2px solid var(--accent);
+      background: #475743;
+    }
+
+    .tool-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .layer-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 9px;
+    }
+
+    .section {
+      margin-top: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+
+      border: 1px solid #48564b;
+      border-radius: 8px;
+
+      background: #0e1410;
+      color: var(--text);
+
+      font: inherit;
+    }
+
+    input,
+    select {
+      padding: 9px;
+    }
+
+    textarea {
+      min-height: 300px;
+      padding: 10px;
+
+      resize: vertical;
+
+      font-family:
+        ui-monospace,
+        SFMono-Regular,
+        Consolas,
+        monospace;
+
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .dimension-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .tool-preview {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 4px;
+
+      vertical-align: middle;
+    }
+
+    .helper-text {
+      margin-top: 13px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .current-layer {
+      margin-bottom: 12px;
+      padding: 9px;
+
+      border: 1px solid #526054;
+      border-radius: 8px;
+
+      background: #202b23;
+      color: var(--accent);
+
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 1080px) {
+      .editor-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-panel {
+        order: -1;
+        min-height: 400px;
+      }
     }
   </style>
 </head>
+
 <body>
-<header>
-  <div>
-    <h1>ScriptEditor｜迷霧遺跡地圖編輯器</h1>
-    <div class="status" id="status">尚未儲存</div>
-  </div>
-  <a class="button" href="index.html">開啟遊戲</a>
-</header>
-
-<main class="layout">
-  <aside class="panel">
-    <strong>地形工具</strong>
-    <div class="tools" id="tileTools"></div>
-
-    <label>物件工具</label>
-    <div class="tools" id="objectTools"></div>
-
-    <div class="stack" style="margin-top:14px">
-      <button id="saveBtn">儲存到瀏覽器</button>
-      <button id="clearBtn">清空地圖</button>
-      <button id="defaultBtn">還原範例</button>
-    </div>
-
-    <div class="hint">
-      左鍵繪製。按住滑鼠可連續繪製。<br>
-      物件再次點擊同一格可移除。<br>
-      玩家出生點僅保留一個。
-    </div>
-  </aside>
-
-  <section class="canvas-wrap">
-    <canvas id="editor" width="768" height="576"></canvas>
-  </section>
-
-  <aside class="panel">
-    <strong>地圖資料</strong>
-
-    <div class="row">
-      <div>
-        <label>欄數</label>
-        <input id="cols" type="number" min="6" max="60" value="16">
-      </div>
-      <div>
-        <label>列數</label>
-        <input id="rows" type="number" min="6" max="40" value="12">
+  <header class="editor-header">
+    <div>
+      <h1>ScriptEditor｜迷霧遺跡</h1>
+      <div id="saveStatus" class="save-status">
+        尚未儲存
       </div>
     </div>
 
-    <button id="resizeBtn" style="margin-top:8px;width:100%">調整地圖尺寸</button>
+    <a class="button" href="index.html">
+      返回遊戲
+    </a>
+  </header>
 
-    <label>JSON</label>
-    <textarea id="jsonBox"></textarea>
+  <main class="editor-layout">
+    <aside class="panel">
+      <div class="panel-title">圖層</div>
 
-    <div class="stack">
-      <button id="applyJsonBtn">套用 JSON</button>
-      <button id="exportBtn">下載 JSON</button>
-      <label class="button" for="importFile">匯入 JSON 檔</label>
-      <input id="importFile" type="file" accept=".json,application/json" hidden>
-    </div>
-  </aside>
-</main>
+      <div id="currentLayerText" class="current-layer">
+        目前圖層：地面層
+      </div>
 
-<script>
-(() => {
-  const TILE=48;
-  const canvas=document.getElementById("editor");
-  const ctx=canvas.getContext("2d");
-  ctx.imageSmoothingEnabled=false;
+      <div id="layerButtons" class="layer-grid"></div>
 
-  const tileDefs=[
-    {id:0,name:"草地",color:"#3f7747"},
-    {id:1,name:"牆壁",color:"#243027"},
-    {id:2,name:"樹木",color:"#315c36"},
-    {id:3,name:"水域",color:"#2e6883"},
-    {id:4,name:"門",color:"#9d7544"},
-    {id:5,name:"終點",color:"#b69a50"}
-  ];
-  const objectDefs=[
-    {id:"playerSpawn",name:"出生點"},
-    {id:"enemy",name:"敵人"},
-    {id:"key",name:"鑰匙"},
-    {id:"chest",name:"寶箱"},
-    {id:"eraseObject",name:"移除物件"}
-  ];
+      <div class="section">
+        <div class="panel-title">繪製工具</div>
+        <div id="tileButtons" class="tool-grid"></div>
+      </div>
 
-  const defaultMap={
-    version:1,cols:16,rows:12,tileSize:TILE,
-    tiles:[
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
-      [1,0,2,2,2,0,0,0,2,2,2,0,0,0,0,1],
-      [1,0,2,0,0,0,0,0,0,0,2,0,0,4,0,1],
-      [1,0,2,0,1,1,1,0,0,0,2,0,0,0,0,1],
-      [1,0,0,0,1,3,1,0,0,0,0,0,2,2,0,1],
-      [1,0,0,0,1,0,1,0,0,0,0,0,2,0,0,1],
-      [1,0,2,0,1,0,1,0,0,0,2,0,2,0,0,1],
-      [1,0,2,0,1,0,0,0,2,0,2,0,0,0,0,1],
-      [1,0,2,0,1,1,1,1,2,0,2,2,2,0,0,1],
-      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,5,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    ],
-    objects:[
-      {type:"playerSpawn",x:1,y:1},
-      {type:"enemy",x:7,y:3},
-      {type:"enemy",x:11,y:8},
-      {type:"key",x:5,y:5},
-      {type:"chest",x:13,y:9}
-    ]
-  };
+      <div class="section">
+        <div class="panel-title">物件工具</div>
+        <div id="objectButtons" class="tool-grid"></div>
+      </div>
 
-  let map=load();
-  let mode={kind:"tile",value:0};
-  let drawing=false;
+      <div class="section stack">
+        <button id="saveButton" type="button">
+          儲存到瀏覽器
+        </button>
 
-  function clone(v){return JSON.parse(JSON.stringify(v))}
-  function load(){
-    try{
-      const raw=localStorage.getItem("mistRuinsMap");
-      return raw?JSON.parse(raw):clone(defaultMap);
-    }catch{return clone(defaultMap)}
-  }
+        <button id="clearLayerButton" type="button">
+          清空目前圖層
+        </button>
 
-  function buildTools(){
-    const tileRoot=document.getElementById("tileTools");
-    tileDefs.forEach(d=>{
-      const b=document.createElement("button");
-      b.innerHTML=`<span class="tile-preview" style="background:${d.color}"></span>${d.name}`;
-      b.onclick=()=>selectTool("tile",d.id,b);
-      if(d.id===0)b.classList.add("active");
-      tileRoot.appendChild(b);
-    });
-    const objRoot=document.getElementById("objectTools");
-    objectDefs.forEach(d=>{
-      const b=document.createElement("button");
-      b.textContent=d.name;
-      b.onclick=()=>selectTool("object",d.id,b);
-      objRoot.appendChild(b);
-    });
-  }
+        <button id="resetDefaultButton" type="button">
+          還原範例地圖
+        </button>
+      </div>
 
-  function selectTool(kind,value,btn){
-    mode={kind,value};
-    document.querySelectorAll(".tools button").forEach(x=>x.classList.remove("active"));
-    btn.classList.add("active");
-  }
+      <div class="helper-text">
+        地面層：草地、道路、水面、地板。<br>
+        裝飾層：牆壁、樹幹、門、終點。<br>
+        碰撞層：控制玩家是否能通過。<br>
+        前景層：會繪製在玩家上方。<br>
+        物件層：出生點、敵人、鑰匙、寶箱。
+      </div>
+    </aside>
 
-  function syncCanvas(){
-    canvas.width=map.cols*TILE;
-    canvas.height=map.rows*TILE;
-    document.getElementById("cols").value=map.cols;
-    document.getElementById("rows").value=map.rows;
-    updateJson();
-    draw();
-  }
+    <section class="canvas-panel">
+      <canvas
+        id="editorCanvas"
+        width="1440"
+        height="960"
+        aria-label="迷霧遺跡地圖編輯區"
+      ></canvas>
+    </section>
 
-  function resizeMap(cols,rows){
-    cols=Math.max(6,Math.min(60,cols));
-    rows=Math.max(6,Math.min(40,rows));
-    const next=Array.from({length:rows},(_,y)=>
-      Array.from({length:cols},(_,x)=>map.tiles[y]?.[x] ?? 0)
-    );
-    map.tiles=next;
-    map.cols=cols;
-    map.rows=rows;
-    map.objects=(map.objects||[]).filter(o=>o.x<cols&&o.y<rows);
-    syncCanvas();
-  }
+    <aside class="panel">
+      <div class="panel-title">地圖設定</div>
 
-  function cellFromEvent(e){
-    const r=canvas.getBoundingClientRect();
-    const sx=canvas.width/r.width;
-    const sy=canvas.height/r.height;
-    return {
-      x:Math.floor((e.clientX-r.left)*sx/TILE),
-      y:Math.floor((e.clientY-r.top)*sy/TILE)
-    };
-  }
+      <div class="dimension-grid">
+        <div>
+          <label for="columnsInput">欄數</label>
 
-  function paint(e){
-    const {x,y}=cellFromEvent(e);
-    if(x<0||y<0||x>=map.cols||y>=map.rows)return;
-    if(mode.kind==="tile"){
-      map.tiles[y][x]=mode.value;
-    }else{
-      map.objects=map.objects||[];
-      if(mode.value==="eraseObject"){
-        map.objects=map.objects.filter(o=>!(o.x===x&&o.y===y));
-      }else{
-        if(mode.value==="playerSpawn"){
-          map.objects=map.objects.filter(o=>o.type!=="playerSpawn");
-        }
-        const idx=map.objects.findIndex(o=>o.x===x&&o.y===y&&o.type===mode.value);
-        if(idx>=0) map.objects.splice(idx,1);
-        else map.objects.push({type:mode.value,x,y});
+          <input
+            id="columnsInput"
+            type="number"
+            min="12"
+            max="80"
+            value="36"
+          >
+        </div>
+
+        <div>
+          <label for="rowsInput">列數</label>
+
+          <input
+            id="rowsInput"
+            type="number"
+            min="10"
+            max="60"
+            value="24"
+          >
+        </div>
+      </div>
+
+      <button
+        id="resizeButton"
+        type="button"
+        style="margin-top: 9px"
+      >
+        調整地圖尺寸
+      </button>
+
+      <div class="section">
+        <label for="jsonTextarea">地圖 JSON</label>
+
+        <textarea id="jsonTextarea"></textarea>
+      </div>
+
+      <div class="stack">
+        <button id="applyJsonButton" type="button">
+          套用 JSON
+        </button>
+
+        <button id="exportButton" type="button">
+          下載 JSON
+        </button>
+
+        <label class="button" for="importInput">
+          匯入 JSON
+        </label>
+
+        <input
+          id="importInput"
+          type="file"
+          accept=".json,application/json"
+          hidden
+        >
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "mistRuinsMapV2";
+      const TILE_SIZE = 40;
+
+      const canvas =
+        document.getElementById("editorCanvas");
+
+      const context =
+        canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("瀏覽器不支援 Canvas 2D。");
       }
-    }
-    updateJson();
-    draw();
-  }
 
-  canvas.addEventListener("mousedown",e=>{drawing=true;paint(e)});
-  canvas.addEventListener("mousemove",e=>{
-    if(drawing&&mode.kind==="tile")paint(e);
-  });
-  addEventListener("mouseup",()=>drawing=false);
+      context.imageSmoothingEnabled = false;
 
-  function updateJson(){
-    document.getElementById("jsonBox").value=JSON.stringify(map,null,2);
-    document.getElementById("status").textContent="尚未儲存";
-  }
+      const saveStatus =
+        document.getElementById("saveStatus");
 
-  function drawTile(x,y,t){
-    const def=tileDefs.find(d=>d.id===t) || tileDefs[0];
-    ctx.fillStyle=def.color;
-    ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-    ctx.strokeStyle="rgba(255,255,255,.10)";
-    ctx.strokeRect(x*TILE,y*TILE,TILE,TILE);
-    if(t===1){
-      ctx.fillStyle="#18201a";
-      ctx.fillRect(x*TILE+6,y*TILE+6,TILE-12,TILE-12);
-    }
-    if(t===2){
-      ctx.fillStyle="#24462a";
-      ctx.beginPath();ctx.arc(x*TILE+24,y*TILE+24,17,0,Math.PI*2);ctx.fill();
-    }
-    if(t===3){
-      ctx.fillStyle="rgba(255,255,255,.16)";
-      ctx.fillRect(x*TILE+6,y*TILE+12,TILE-12,4);
-      ctx.fillRect(x*TILE+12,y*TILE+28,TILE-20,3);
-    }
-    if(t===4){
-      ctx.fillStyle="#6d4d2b";ctx.fillRect(x*TILE+8,y*TILE+4,TILE-16,TILE-8);
-    }
-    if(t===5){
-      ctx.strokeStyle="#f2d77c";ctx.lineWidth=4;
-      ctx.strokeRect(x*TILE+10,y*TILE+10,TILE-20,TILE-20);
-      ctx.lineWidth=1;
-    }
-  }
+      const currentLayerText =
+        document.getElementById("currentLayerText");
 
-  function drawObject(o){
-    const cx=o.x*TILE+TILE/2,cy=o.y*TILE+TILE/2;
-    ctx.textAlign="center";ctx.textBaseline="middle";
-    if(o.type==="playerSpawn"){
-      ctx.fillStyle="#d7b56d";ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle="#111";ctx.font="700 10px system-ui";ctx.fillText("P",cx,cy);
-    }else if(o.type==="enemy"){
-      ctx.fillStyle="#a14f58";ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle="#fff";ctx.font="700 10px system-ui";ctx.fillText("E",cx,cy);
-    }else if(o.type==="key"){
-      ctx.fillStyle="#f2d77c";ctx.beginPath();ctx.arc(cx-4,cy,7,0,Math.PI*2);ctx.fill();
-      ctx.fillRect(cx+1,cy-2,14,4);
-    }else if(o.type==="chest"){
-      ctx.fillStyle="#855d35";ctx.fillRect(cx-14,cy-10,28,20);
-      ctx.fillStyle="#d7b56d";ctx.fillRect(cx-2,cy-3,4,8);
-    }
-  }
+      const layerButtons =
+        document.getElementById("layerButtons");
 
-  function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    for(let y=0;y<map.rows;y++)
-      for(let x=0;x<map.cols;x++)
-        drawTile(x,y,map.tiles[y][x]);
-    (map.objects||[]).forEach(drawObject);
-  }
+      const tileButtons =
+        document.getElementById("tileButtons");
 
-  document.getElementById("saveBtn").onclick=()=>{
-    localStorage.setItem("mistRuinsMap",JSON.stringify(map));
-    document.getElementById("status").textContent="已儲存，可回遊戲重新讀取";
-  };
-  document.getElementById("clearBtn").onclick=()=>{
-    map.tiles=Array.from({length:map.rows},()=>Array(map.cols).fill(0));
-    map.objects=[];
-    syncCanvas();
-  };
-  document.getElementById("defaultBtn").onclick=()=>{
-    map=clone(defaultMap);syncCanvas();
-  };
-  document.getElementById("resizeBtn").onclick=()=>{
-    resizeMap(
-      Number(document.getElementById("cols").value),
-      Number(document.getElementById("rows").value)
-    );
-  };
-  document.getElementById("applyJsonBtn").onclick=()=>{
-    try{
-      const parsed=JSON.parse(document.getElementById("jsonBox").value);
-      if(!Array.isArray(parsed.tiles))throw new Error("tiles 缺失");
-      map=parsed;
-      map.tileSize=TILE;
-      syncCanvas();
-    }catch(err){
-      alert("JSON 格式錯誤："+err.message);
-    }
-  };
-  document.getElementById("exportBtn").onclick=()=>{
-    const blob=new Blob([JSON.stringify(map,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url;a.download="mist-ruins-map.json";a.click();
-    URL.revokeObjectURL(url);
-  };
-  document.getElementById("importFile").onchange=async e=>{
-    const file=e.target.files[0];
-    if(!file)return;
-    try{
-      map=JSON.parse(await file.text());
-      syncCanvas();
-    }catch(err){alert("無法匯入："+err.message)}
-  };
+      const objectButtons =
+        document.getElementById("objectButtons");
 
-  buildTools();
-  syncCanvas();
-})();
-</script>
+      const columnsInput =
+        document.getElementById("columnsInput");
+
+      const rowsInput =
+        document.getElementById("rowsInput");
+
+      const jsonTextarea =
+        document.getElementById("jsonTextarea");
+
+      const saveButton =
+        document.getElementById("saveButton");
+
+      const clearLayerButton =
+        document.getElementById("clearLayerButton");
+
+      const resetDefaultButton =
+        document.getElementById("resetDefaultButton");
+
+      const resizeButton =
+        document.getElementById("resizeButton");
+
+      const applyJsonButton =
+        document.getElementById("applyJsonButton");
+
+      const exportButton =
+        document.getElementById("exportButton");
+
+      const importInput =
+        document.getElementById("importInput");
+
+      const TILE_TYPES = {
+        EMPTY: 0,
+        GRASS: 1,
+        DIRT: 2,
+        STONE: 3,
+        WATER: 4,
+        FLOOR: 5,
+        WALL: 6,
+        TREE_TRUNK: 7,
+        TREE_CROWN: 8,
+        BUSH: 9,
+        DOOR: 10,
+        EXIT: 11
+      };
+
+      const LAYER_DEFINITIONS = [
+        {
+          id: "ground",
+          name: "地面層"
+        },
+        {
+          id: "decoration",
+          name: "裝飾層"
+        },
+        {
+          id: "collision",
+          name: "碰撞層"
+        },
+        {
+          id: "foreground",
+          name: "前景層"
+        },
+        {
+          id: "objects",
+          name: "物件層"
+        }
+      ];
+
+      const GROUND_TOOLS = [
+        {
+          id: TILE_TYPES.EMPTY,
+          name: "清除",
+          color: "#111713"
+        },
+        {
+          id: TILE_TYPES.GRASS,
+          name: "草地",
+          color: "#47794b"
+        },
+        {
+          id: TILE_TYPES.DIRT,
+          name: "道路",
+          color: "#80684a"
+        },
+        {
+          id: TILE_TYPES.STONE,
+          name: "石地",
+          color: "#626a62"
+        },
+        {
+          id: TILE_TYPES.WATER,
+          name: "水域",
+          color: "#32697b"
+        },
+        {
+          id: TILE_TYPES.FLOOR,
+          name: "遺跡地板",
+          color: "#66655b"
+        }
+      ];
+
+      const DECORATION_TOOLS = [
+        {
+          id: TILE_TYPES.EMPTY,
+          name: "清除",
+          color: "#111713"
+        },
+        {
+          id: TILE_TYPES.WALL,
+          name: "牆壁",
+          color: "#28332b"
+        },
+        {
+          id: TILE_TYPES.TREE_TRUNK,
+          name: "樹幹",
+          color: "#704c2e"
+        },
+        {
+          id: TILE_TYPES.BUSH,
+          name: "灌木",
+          color: "#294f31"
+        },
+        {
+          id: TILE_TYPES.DOOR,
+          name: "石門",
+          color: "#744f2c"
+        },
+        {
+          id: TILE_TYPES.EXIT,
+          name: "終點",
+          color: "#c9a958"
+        }
+      ];
+
+      const FOREGROUND_TOOLS = [
+        {
+          id: TILE_TYPES.EMPTY,
+          name: "清除",
+          color: "#111713"
+        },
+        {
+          id: TILE_TYPES.TREE_CROWN,
+          name: "樹冠",
+          color: "#285532"
+        }
+      ];
+
+      const COLLISION_TOOLS = [
+        {
+          id: 0,
+          name: "可通行",
+          color: "#3f7448"
+        },
+        {
+          id: 1,
+          name: "不可通行",
+          color: "#b45151"
+        }
+      ];
+
+      const OBJECT_TOOLS = [
+        {
+          id: "playerSpawn",
+          name: "出生點"
+        },
+        {
+          id: "enemy",
+          name: "敵人"
+        },
+        {
+          id: "key",
+          name: "鑰匙"
+        },
+        {
+          id: "chest",
+          name: "寶箱"
+        },
+        {
+          id: "eraseObject",
+          name: "移除物件"
+        }
+      ];
+
+      let activeLayer = "ground";
+      let activeTool = TILE_TYPES.GRASS;
+
+      let isDrawing = false;
+
+      let mapData = loadMap();
+
+      function createLayer(
+        columns,
+        rows,
+        fillValue = 0
+      ) {
+        return Array.from(
+          { length: rows },
+          () => Array(columns).fill(fillValue)
+        );
+      }
+
+      function deepClone(value) {
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function createDefaultMap() {
+        const columns = 36;
+        const rows = 24;
+
+        const ground = createLayer(
+          columns,
+          rows,
+          TILE_TYPES.GRASS
+        );
+
+        const decoration = createLayer(columns, rows);
+        const collision = createLayer(columns, rows);
+        const foreground = createLayer(columns, rows);
+
+        for (let y = 0; y < rows; y += 1) {
+          for (let x = 0; x < columns; x += 1) {
+            const isBorder =
+              x === 0 ||
+              y === 0 ||
+              x === columns - 1 ||
+              y === rows - 1;
+
+            if (isBorder) {
+              decoration[y][x] = TILE_TYPES.WALL;
+              collision[y][x] = 1;
+            }
+          }
+        }
+
+        for (let x = 2; x <= 28; x += 1) {
+          ground[11][x] = TILE_TYPES.DIRT;
+          ground[12][x] = TILE_TYPES.DIRT;
+        }
+
+        for (let y = 3; y <= 18; y += 1) {
+          ground[y][17] = TILE_TYPES.DIRT;
+          ground[y][18] = TILE_TYPES.DIRT;
+        }
+
+        for (let y = 3; y <= 8; y += 1) {
+          for (let x = 24; x <= 31; x += 1) {
+            ground[y][x] = TILE_TYPES.WATER;
+            collision[y][x] = 1;
+          }
+        }
+
+        for (let y = 15; y <= 20; y += 1) {
+          for (let x = 5; x <= 13; x += 1) {
+            ground[y][x] = TILE_TYPES.FLOOR;
+          }
+        }
+
+        for (let x = 5; x <= 13; x += 1) {
+          decoration[15][x] = TILE_TYPES.WALL;
+          collision[15][x] = 1;
+
+          decoration[20][x] = TILE_TYPES.WALL;
+          collision[20][x] = 1;
+        }
+
+        for (let y = 15; y <= 20; y += 1) {
+          decoration[y][5] = TILE_TYPES.WALL;
+          collision[y][5] = 1;
+
+          decoration[y][13] = TILE_TYPES.WALL;
+          collision[y][13] = 1;
+        }
+
+        decoration[20][9] = TILE_TYPES.DOOR;
+        collision[20][9] = 1;
+
+        decoration[17][9] = TILE_TYPES.EXIT;
+
+        const trees = [
+          [4, 4],
+          [7, 5],
+          [11, 3],
+          [14, 7],
+          [21, 4],
+          [29, 13],
+          [31, 17],
+          [24, 19],
+          [18, 21],
+          [3, 17]
+        ];
+
+        for (const [x, y] of trees) {
+          decoration[y][x] =
+            TILE_TYPES.TREE_TRUNK;
+
+          collision[y][x] = 1;
+
+          foreground[y - 1][x] =
+            TILE_TYPES.TREE_CROWN;
+
+          if (x > 0) {
+            foreground[y - 1][x - 1] =
+              TILE_TYPES.TREE_CROWN;
+          }
+
+          if (x < columns - 1) {
+            foreground[y - 1][x + 1] =
+              TILE_TYPES.TREE_CROWN;
+          }
+        }
+
+        const bushes = [
+          [8, 8],
+          [9, 8],
+          [10, 8],
+          [22, 14],
+          [23, 14],
+          [27, 20]
+        ];
+
+        for (const [x, y] of bushes) {
+          decoration[y][x] = TILE_TYPES.BUSH;
+          collision[y][x] = 1;
+        }
+
+        return {
+          version: 2,
+          columns,
+          rows,
+          tileSize: TILE_SIZE,
+
+          layers: {
+            ground,
+            decoration,
+            collision,
+            foreground
+          },
+
+          objects: [
+            {
+              type: "playerSpawn",
+              x: 3,
+              y: 11
+            },
+            {
+              type: "enemy",
+              x: 13,
+              y: 10
+            },
+            {
+              type: "enemy",
+              x: 21,
+              y: 13
+            },
+            {
+              type: "enemy",
+              x: 28,
+              y: 18
+            },
+            {
+              type: "key",
+              x: 30,
+              y: 10
+            },
+            {
+              type: "chest",
+              x: 9,
+              y: 17
+            }
+          ]
+        };
+      }
+
+      function normalizeMap(data) {
+        if (
+          !data ||
+          !Number.isInteger(data.columns) ||
+          !Number.isInteger(data.rows)
+        ) {
+          throw new Error("地圖欄數或列數錯誤。");
+        }
+
+        if (!data.layers) {
+          data.layers = {};
+        }
+
+        const requiredLayers = [
+          "ground",
+          "decoration",
+          "collision",
+          "foreground"
+        ];
+
+        for (const layerName of requiredLayers) {
+          if (!Array.isArray(data.layers[layerName])) {
+            data.layers[layerName] =
+              createLayer(
+                data.columns,
+                data.rows
+              );
+          }
+        }
+
+        if (!Array.isArray(data.objects)) {
+          data.objects = [];
+        }
+
+        data.tileSize = TILE_SIZE;
+
+        return data;
+      }
+
+      function loadMap() {
+        try {
+          const saved =
+            localStorage.getItem(STORAGE_KEY);
+
+          if (!saved) {
+            return createDefaultMap();
+          }
+
+          return normalizeMap(
+            JSON.parse(saved)
+          );
+        } catch (error) {
+          console.error(
+            "地圖讀取失敗：",
+            error
+          );
+
+          return createDefaultMap();
+        }
+      }
+
+      function markUnsaved() {
+        saveStatus.textContent = "尚未儲存";
+      }
+
+      function updateJsonTextarea() {
+        jsonTextarea.value =
+          JSON.stringify(
+            mapData,
+            null,
+            2
+          );
+
+        markUnsaved();
+      }
+
+      function synchronizeCanvasSize() {
+        canvas.width =
+          mapData.columns * TILE_SIZE;
+
+        canvas.height =
+          mapData.rows * TILE_SIZE;
+
+        columnsInput.value =
+          String(mapData.columns);
+
+        rowsInput.value =
+          String(mapData.rows);
+
+        updateJsonTextarea();
+        drawEditor();
+      }
+
+      function getToolsForLayer(layerName) {
+        if (layerName === "ground") {
+          return GROUND_TOOLS;
+        }
+
+        if (layerName === "decoration") {
+          return DECORATION_TOOLS;
+        }
+
+        if (layerName === "collision") {
+          return COLLISION_TOOLS;
+        }
+
+        if (layerName === "foreground") {
+          return FOREGROUND_TOOLS;
+        }
+
+        return [];
+      }
+
+      function clearActiveButtons() {
+        document
+          .querySelectorAll("button.active")
+          .forEach((button) => {
+            button.classList.remove("active");
+          });
+      }
+
+      function renderLayerButtons() {
+        layerButtons.innerHTML = "";
+
+        for (
+          const layer of LAYER_DEFINITIONS
+        ) {
+          const button =
+            document.createElement("button");
+
+          button.type = "button";
+          button.textContent = layer.name;
+
+          if (layer.id === activeLayer) {
+            button.classList.add("active");
+          }
+
+          button.addEventListener(
+            "click",
+            () => {
+              activeLayer = layer.id;
+
+              if (activeLayer === "objects") {
+                activeTool = "playerSpawn";
+              } else {
+                activeTool =
+                  getToolsForLayer(
+                    activeLayer
+                  )[0].id;
+              }
+
+              currentLayerText.textContent =
+                `目前圖層：${layer.name}`;
+
+              renderLayerButtons();
+              renderToolButtons();
+              drawEditor();
+            }
+          );
+
+          layerButtons.appendChild(button);
+        }
+      }
+
+      function renderToolButtons() {
+        tileButtons.innerHTML = "";
+        objectButtons.innerHTML = "";
+
+        if (activeLayer === "objects") {
+          for (
+            const tool of OBJECT_TOOLS
+          ) {
+            const button =
+              document.createElement("button");
+
+            button.type = "button";
+            button.textContent = tool.name;
+
+            if (tool.id === activeTool) {
+              button.classList.add("active");
+            }
+
+            button.addEventListener(
+              "click",
+              () => {
+                activeTool = tool.id;
+                renderToolButtons();
+              }
+            );
+
+            objectButtons.appendChild(button);
+          }
+
+          return;
+        }
+
+        const tools =
+          getToolsForLayer(activeLayer);
+
+        for (const tool of tools) {
+          const button =
+            document.createElement("button");
+
+          button.type = "button";
+
+          button.innerHTML =
+            `<span class="tool-preview" ` +
+            `style="background:${tool.color}"></span>` +
+            tool.name;
+
+          if (tool.id === activeTool) {
+            button.classList.add("active");
+          }
+
+          button.addEventListener(
+            "click",
+            () => {
+              activeTool = tool.id;
+              renderToolButtons();
+            }
+          );
+
+          tileButtons.appendChild(button);
+        }
+      }
+
+      function getCellFromPointer(event) {
+        const rectangle =
+          canvas.getBoundingClientRect();
+
+        const scaleX =
+          canvas.width / rectangle.width;
+
+        const scaleY =
+          canvas.height / rectangle.height;
+
+        return {
+          x: Math.floor(
+            (
+              event.clientX -
+              rectangle.left
+            ) *
+            scaleX /
+            TILE_SIZE
+          ),
+
+          y: Math.floor(
+            (
+              event.clientY -
+              rectangle.top
+            ) *
+            scaleY /
+            TILE_SIZE
+          )
+        };
+      }
+
+      function isInsideMap(x, y) {
+        return (
+          x >= 0 &&
+          y >= 0 &&
+          x < mapData.columns &&
+          y < mapData.rows
+        );
+      }
+
+      function placeObject(x, y) {
+        if (activeTool === "eraseObject") {
+          mapData.objects =
+            mapData.objects.filter(
+              (object) =>
+                !(
+                  object.x === x &&
+                  object.y === y
+                )
+            );
+
+          return;
+        }
+
+        if (activeTool === "playerSpawn") {
+          mapData.objects =
+            mapData.objects.filter(
+              (object) =>
+                object.type !==
+                "playerSpawn"
+            );
+        }
+
+        const existingIndex =
+          mapData.objects.findIndex(
+            (object) =>
+              object.x === x &&
+              object.y === y &&
+              object.type === activeTool
+          );
+
+        if (existingIndex >= 0) {
+          mapData.objects.splice(
+            existingIndex,
+            1
+          );
+
+          return;
+        }
+
+        mapData.objects.push({
+          type: activeTool,
+          x,
+          y
+        });
+      }
+
+      function paintCell(event) {
+        const cell =
+          getCellFromPointer(event);
+
+        if (!isInsideMap(cell.x, cell.y)) {
+          return;
+        }
+
+        if (activeLayer === "objects") {
+          placeObject(cell.x, cell.y);
+        } else {
+          mapData.layers[activeLayer]
+            [cell.y][cell.x] = activeTool;
+        }
+
+        updateJsonTextarea();
+        drawEditor();
+      }
+
+      function resizeLayer(
+        sourceLayer,
+        columns,
+        rows,
+        defaultValue = 0
+      ) {
+        return Array.from(
+          { length: rows },
+          (_, y) =>
+            Array.from(
+              { length: columns },
+              (_, x) =>
+                sourceLayer[y]?.[x] ??
+                defaultValue
+            )
+        );
+      }
+
+      function resizeMap() {
+        const columns = Math.max(
+          12,
+          Math.min(
+            80,
+            Number(columnsInput.value)
+          )
+        );
+
+        const rows = Math.max(
+          10,
+          Math.min(
+            60,
+            Number(rowsInput.value)
+          )
+        );
+
+        for (
+          const layerName of [
+            "ground",
+            "decoration",
+            "collision",
+            "foreground"
+          ]
+        ) {
+          mapData.layers[layerName] =
+            resizeLayer(
+              mapData.layers[layerName],
+              columns,
+              rows,
+              layerName === "ground"
+                ? TILE_TYPES.GRASS
+                : 0
+            );
+        }
+
+        mapData.columns = columns;
+        mapData.rows = rows;
+
+        mapData.objects =
+          mapData.objects.filter(
+            (object) =>
+              object.x < columns &&
+              object.y < rows
+          );
+
+        synchronizeCanvasSize();
+      }
+
+      function clearCurrentLayer() {
+        if (activeLayer === "objects") {
+          mapData.objects = [];
+        } else {
+          const fillValue =
+            activeLayer === "ground"
+              ? TILE_TYPES.GRASS
+              : 0;
+
+          mapData.layers[activeLayer] =
+            createLayer(
+              mapData.columns,
+              mapData.rows,
+              fillValue
+            );
+        }
+
+        updateJsonTextarea();
+        drawEditor();
+      }
+
+      function drawGroundTile(
+        tile,
+        screenX,
+        screenY
+      ) {
+        const colorMap = {
+          [TILE_TYPES.EMPTY]: "#1b261d",
+          [TILE_TYPES.GRASS]: "#47794b",
+          [TILE_TYPES.DIRT]: "#80684a",
+          [TILE_TYPES.STONE]: "#626a62",
+          [TILE_TYPES.WATER]: "#32697b",
+          [TILE_TYPES.FLOOR]: "#66655b"
+        };
+
+        context.fillStyle =
+          colorMap[tile] || "#47794b";
+
+        context.fillRect(
+          screenX,
+          screenY,
+          TILE_SIZE,
+          TILE_SIZE
+        );
+      }
+
+      function drawDecorationTile(
+        tile,
+        screenX,
+        screenY
+      ) {
+        if (tile === TILE_TYPES.WALL) {
+          context.fillStyle = "#29342c";
+
+          context.fillRect(
+            screenX + 2,
+            screenY + 2,
+            TILE_SIZE - 4,
+            TILE_SIZE - 4
+          );
+        }
+
+        if (tile === TILE_TYPES.TREE_TRUNK) {
+          context.fillStyle = "#704c2e";
+
+          context.fillRect(
+            screenX + 14,
+            screenY + 7,
+            12,
+            29
+          );
+        }
+
+        if (tile === TILE_TYPES.BUSH) {
+          context.fillStyle = "#294f31";
+
+          context.beginPath();
+
+          context.arc(
+            screenX + 14,
+            screenY + 22,
+            11,
+            0,
+            Math.PI * 2
+          );
+
+          context.arc(
+            screenX + 26,
+            screenY + 20,
+            12,
+            0,
+            Math.PI * 2
+          );
+
+          context.fill();
+        }
+
+        if (tile === TILE_TYPES.DOOR) {
+          context.fillStyle = "#744f2c";
+
+          context.fillRect(
+            screenX + 6,
+            screenY + 2,
+            TILE_SIZE - 12,
+            TILE_SIZE - 3
+          );
+        }
+
+        if (tile === TILE_TYPES.EXIT) {
+          context.strokeStyle = "#e4c769";
+          context.lineWidth = 3;
+
+          context.strokeRect(
+            screenX + 7,
+            screenY + 7,
+            TILE_SIZE - 14,
+            TILE_SIZE - 14
+          );
+
+          context.lineWidth = 1;
+        }
+      }
+
+      function drawForegroundTile(
+        tile,
+        screenX,
+        screenY
+      ) {
+        if (tile !== TILE_TYPES.TREE_CROWN) {
+          return;
+        }
+
+        context.fillStyle =
+          "rgba(37, 91, 46, 0.78)";
+
+        context.beginPath();
+
+        context.arc(
+          screenX + 13,
+          screenY + 23,
+          16,
+          0,
+          Math.PI * 2
+        );
+
+        context.arc(
+          screenX + 27,
+          screenY + 17,
+          18,
+          0,
+          Math.PI * 2
+        );
+
+        context.fill();
+      }
+
+      function drawCollisionTile(
+        collision,
+        screenX,
+        screenY
+      ) {
+        if (collision !== 1) {
+          return;
+        }
+
+        context.fillStyle =
+          "rgba(216, 70, 70, 0.34)";
+
+        context.fillRect(
+          screenX,
+          screenY,
+          TILE_SIZE,
+          TILE_SIZE
+        );
+
+        context.strokeStyle =
+          "rgba(255, 122, 122, 0.9)";
+
+        context.beginPath();
+
+        context.moveTo(
+          screenX,
+          screenY
+        );
+
+        context.lineTo(
+          screenX + TILE_SIZE,
+          screenY + TILE_SIZE
+        );
+
+        context.moveTo(
+          screenX + TILE_SIZE,
+          screenY
+        );
+
+        context.lineTo(
+          screenX,
+          screenY + TILE_SIZE
+        );
+
+        context.stroke();
+      }
+
+      function drawObject(object) {
+        const centerX =
+          object.x * TILE_SIZE +
+          TILE_SIZE / 2;
+
+        const centerY =
+          object.y * TILE_SIZE +
+          TILE_SIZE / 2;
+
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        if (object.type === "playerSpawn") {
+          context.fillStyle = "#d7b56d";
+
+          context.beginPath();
+
+          context.arc(
+            centerX,
+            centerY,
+            12,
+            0,
+            Math.PI * 2
+          );
+
+          context.fill();
+
+          context.fillStyle = "#1d231d";
+          context.font = "700 10px system-ui";
+          context.fillText("P", centerX, centerY);
+        }
+
+        if (object.type === "enemy") {
+          context.fillStyle = "#a8515e";
+
+          context.beginPath();
+
+          context.arc(
+            centerX,
+            centerY,
+            12,
+            0,
+            Math.PI * 2
+          );
+
+          context.fill();
+
+          context.fillStyle = "#ffffff";
+          context.font = "700 10px system-ui";
+          context.fillText("E", centerX, centerY);
+        }
+
+        if (object.type === "key") {
+          context.fillStyle = "#eed16e";
+
+          context.beginPath();
+
+          context.arc(
+            centerX - 5,
+            centerY,
+            7,
+            0,
+            Math.PI * 2
+          );
+
+          context.fill();
+
+          context.fillRect(
+            centerX,
+            centerY - 2,
+            15,
+            4
+          );
+        }
+
+        if (object.type === "chest") {
+          context.fillStyle = "#795333";
+
+          context.fillRect(
+            centerX - 14,
+            centerY - 10,
+            28,
+            20
+          );
+
+          context.fillStyle = "#d7b56d";
+
+          context.fillRect(
+            centerX - 2,
+            centerY - 4,
+            4,
+            8
+          );
+        }
+      }
+
+      function drawGrid() {
+        context.strokeStyle =
+          "rgba(255, 255, 255, 0.10)";
+
+        context.lineWidth = 1;
+
+        for (
+          let x = 0;
+          x <= mapData.columns;
+          x += 1
+        ) {
+          context.beginPath();
+
+          context.moveTo(
+            x * TILE_SIZE,
+            0
+          );
+
+          context.lineTo(
+            x * TILE_SIZE,
+            canvas.height
+          );
+
+          context.stroke();
+        }
+
+        for (
+          let y = 0;
+          y <= mapData.rows;
+          y += 1
+        ) {
+          context.beginPath();
+
+          context.moveTo(
+            0,
+            y * TILE_SIZE
+          );
+
+          context.lineTo(
+            canvas.width,
+            y * TILE_SIZE
+          );
+
+          context.stroke();
+        }
+      }
+
+      function drawEditor() {
+        context.clearRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        for (
+          let y = 0;
+          y < mapData.rows;
+          y += 1
+        ) {
+          for (
+            let x = 0;
+            x < mapData.columns;
+            x += 1
+          ) {
+            const screenX = x * TILE_SIZE;
+            const screenY = y * TILE_SIZE;
+
+            drawGroundTile(
+              mapData.layers.ground[y][x],
+              screenX,
+              screenY
+            );
+          }
+        }
+
+        for (
+          let y = 0;
+          y < mapData.rows;
+          y += 1
+        ) {
+          for (
+            let x = 0;
+            x < mapData.columns;
+            x += 1
+          ) {
+            const screenX = x * TILE_SIZE;
+            const screenY = y * TILE_SIZE;
+
+            drawDecorationTile(
+              mapData.layers.decoration[y][x],
+              screenX,
+              screenY
+            );
+          }
+        }
+
+        if (activeLayer === "collision") {
+          for (
+            let y = 0;
+            y < mapData.rows;
+            y += 1
+          ) {
+            for (
+              let x = 0;
+              x < mapData.columns;
+              x += 1
+            ) {
+              drawCollisionTile(
+                mapData.layers.collision[y][x],
+                x * TILE_SIZE,
+                y * TILE_SIZE
+              );
+            }
+          }
+        }
+
+        for (const object of mapData.objects) {
+          drawObject(object);
+        }
+
+        for (
+          let y = 0;
+          y < mapData.rows;
+          y += 1
+        ) {
+          for (
+            let x = 0;
+            x < mapData.columns;
+            x += 1
+          ) {
+            drawForegroundTile(
+              mapData.layers.foreground[y][x],
+              x * TILE_SIZE,
+              y * TILE_SIZE
+            );
+          }
+        }
+
+        drawGrid();
+      }
+
+      canvas.addEventListener(
+        "mousedown",
+        (event) => {
+          isDrawing = true;
+          paintCell(event);
+        }
+      );
+
+      canvas.addEventListener(
+        "mousemove",
+        (event) => {
+          if (
+            !isDrawing ||
+            activeLayer === "objects"
+          ) {
+            return;
+          }
+
+          paintCell(event);
+        }
+      );
+
+      window.addEventListener(
+        "mouseup",
+        () => {
+          isDrawing = false;
+        }
+      );
+
+      saveButton.addEventListener(
+        "click",
+        () => {
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(mapData)
+          );
+
+          saveStatus.textContent =
+            "已儲存，可返回遊戲重新讀取";
+        }
+      );
+
+      clearLayerButton.addEventListener(
+        "click",
+        clearCurrentLayer
+      );
+
+      resetDefaultButton.addEventListener(
+        "click",
+        () => {
+          mapData = createDefaultMap();
+
+          activeLayer = "ground";
+          activeTool = TILE_TYPES.GRASS;
+
+          renderLayerButtons();
+          renderToolButtons();
+          synchronizeCanvasSize();
+        }
+      );
+
+      resizeButton.addEventListener(
+        "click",
+        resizeMap
+      );
+
+      applyJsonButton.addEventListener(
+        "click",
+        () => {
+          try {
+            const parsed = JSON.parse(
+              jsonTextarea.value
+            );
+
+            mapData = normalizeMap(parsed);
+
+            synchronizeCanvasSize();
+
+            saveStatus.textContent =
+              "JSON 已套用，尚未儲存";
+          } catch (error) {
+            alert(
+              `JSON 格式錯誤：${error.message}`
+            );
+          }
+        }
+      );
+
+      exportButton.addEventListener(
+        "click",
+        () => {
+          const fileContent =
+            JSON.stringify(
+              mapData,
+              null,
+              2
+            );
+
+          const blob = new Blob(
+            [fileContent],
+            {
+              type: "application/json"
+            }
+          );
+
+          const downloadUrl =
+            URL.createObjectURL(blob);
+
+          const anchor =
+            document.createElement("a");
+
+          anchor.href = downloadUrl;
+          anchor.download =
+            "mist-ruins-map-v2.json";
+
+          anchor.click();
+
+          URL.revokeObjectURL(downloadUrl);
+        }
+      );
+
+      importInput.addEventListener(
+        "change",
+        async () => {
+          const file =
+            importInput.files?.[0];
+
+          if (!file) {
+            return;
+          }
+
+          try {
+            const content =
+              await file.text();
+
+            mapData = normalizeMap(
+              JSON.parse(content)
+            );
+
+            synchronizeCanvasSize();
+
+            saveStatus.textContent =
+              "JSON 已匯入，尚未儲存";
+          } catch (error) {
+            alert(
+              `匯入失敗：${error.message}`
+            );
+          } finally {
+            importInput.value = "";
+          }
+        }
+      );
+
+      renderLayerButtons();
+      renderToolButtons();
+      synchronizeCanvasSize();
+    })();
+  </script>
 </body>
 </html>
