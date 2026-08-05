@@ -14,7 +14,7 @@
     :root {
       --background: #090d0a;
       --panel: rgba(20, 29, 22, 0.96);
-      --panel-border: #39463c;
+      --border: #39463c;
       --text: #f3f0df;
       --muted: #a7b2a8;
       --accent: #d7b56d;
@@ -63,7 +63,7 @@
 
     .game-panel,
     .info-panel {
-      border: 1px solid var(--panel-border);
+      border: 1px solid var(--border);
       border-radius: 16px;
       background: var(--panel);
     }
@@ -96,10 +96,9 @@
       display: grid;
       place-items: center;
       background: rgba(7, 11, 8, 0.86);
-      color: var(--text);
       font-weight: 700;
-      transition: opacity 0.2s ease;
       pointer-events: none;
+      transition: opacity 0.2s ease;
     }
 
     .loading-overlay.hidden {
@@ -199,10 +198,6 @@
       .game-layout {
         grid-template-columns: 1fr;
       }
-
-      .info-panel {
-        padding: 16px;
-      }
     }
   </style>
 </head>
@@ -263,7 +258,7 @@
       <div class="controls">
         <div><b>WASD／方向鍵</b>：移動</div>
         <div><b>Space</b>：攻擊</div>
-        <div><b>E</b>：開門或互動</div>
+        <div><b>E</b>：互動</div>
         <div><b>R</b>：返回出生點</div>
       </div>
 
@@ -277,12 +272,12 @@
         </button>
 
         <a class="button" href="scripteditor.html">
-          開啟地圖編輯器
+          開啟場景編輯器
         </a>
       </div>
 
       <div class="notice">
-        在地圖編輯器套用背景、設定碰撞及物件後，
+        在場景編輯器完成 Path 碰撞與物件配置後，
         按下「儲存到瀏覽器」，再回到遊戲重新讀取。
       </div>
     </aside>
@@ -292,11 +287,10 @@
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "mistRuinsMapV3";
+      const STORAGE_KEY = "mistRuinsMapV4";
 
       const VIEW_WIDTH = 960;
       const VIEW_HEIGHT = 540;
-      const TILE_SIZE = 40;
 
       const canvas =
         document.getElementById("gameCanvas");
@@ -336,6 +330,11 @@
 
       const input = Object.create(null);
 
+      const camera = {
+        x: 0,
+        y: 0
+      };
+
       let activeMap;
       let gameState;
 
@@ -347,48 +346,12 @@
       let attackPressed = false;
       let interactPressed = false;
 
-      const camera = {
-        x: 0,
-        y: 0
-      };
-
-      function createLayer(
-        columns,
-        rows,
-        fillValue = 0
-      ) {
-        return Array.from(
-          { length: rows },
-          () => Array(columns).fill(fillValue)
-        );
-      }
-
       function createDefaultMap() {
-        const columns = 48;
-        const rows = 27;
-
-        const collision =
-          createLayer(columns, rows, 0);
-
-        const foreground =
-          createLayer(columns, rows, 0);
-
-        for (let x = 0; x < columns; x += 1) {
-          collision[0][x] = 1;
-          collision[rows - 1][x] = 1;
-        }
-
-        for (let y = 0; y < rows; y += 1) {
-          collision[y][0] = 1;
-          collision[y][columns - 1] = 1;
-        }
-
         return {
-          version: 3,
+          version: 4,
 
-          columns,
-          rows,
-          tileSize: TILE_SIZE,
+          width: 1920,
+          height: 1080,
 
           background: {
             assetId: "starting-area",
@@ -408,103 +371,171 @@
             ]
           },
 
-          layers: {
-            collision,
-            foreground
-          },
+          collisionPaths: [
+            {
+              id: "world-border-top",
+              type: "polygon",
+              points: [
+                { x: 0, y: 0 },
+                { x: 1920, y: 0 },
+                { x: 1920, y: 24 },
+                { x: 0, y: 24 }
+              ]
+            },
+            {
+              id: "world-border-bottom",
+              type: "polygon",
+              points: [
+                { x: 0, y: 1056 },
+                { x: 1920, y: 1056 },
+                { x: 1920, y: 1080 },
+                { x: 0, y: 1080 }
+              ]
+            },
+            {
+              id: "world-border-left",
+              type: "polygon",
+              points: [
+                { x: 0, y: 0 },
+                { x: 24, y: 0 },
+                { x: 24, y: 1080 },
+                { x: 0, y: 1080 }
+              ]
+            },
+            {
+              id: "world-border-right",
+              type: "polygon",
+              points: [
+                { x: 1896, y: 0 },
+                { x: 1920, y: 0 },
+                { x: 1920, y: 1080 },
+                { x: 1896, y: 1080 }
+              ]
+            }
+          ],
+
+          foregroundPaths: [],
 
           objects: [
             {
+              id: "player-spawn",
               type: "playerSpawn",
-              x: 5,
-              y: 13
+              x: 220,
+              y: 540
             },
             {
+              id: "enemy-1",
               type: "enemy",
-              x: 18,
-              y: 12
+              x: 720,
+              y: 480
             },
             {
+              id: "enemy-2",
               type: "enemy",
-              x: 28,
-              y: 16
+              x: 1120,
+              y: 650
             },
             {
+              id: "key-1",
               type: "key",
-              x: 34,
-              y: 10
+              x: 1430,
+              y: 410
             },
             {
+              id: "chest-1",
               type: "chest",
-              x: 40,
-              y: 18
+              x: 1580,
+              y: 760
             },
             {
+              id: "exit-1",
               type: "exit",
-              x: 44,
-              y: 13
+              x: 1760,
+              y: 540
             }
           ]
         };
       }
 
-      function normalizeLayer(
-        source,
-        columns,
-        rows
-      ) {
-        return Array.from(
-          { length: rows },
-          (_, y) =>
-            Array.from(
-              { length: columns },
-              (_, x) => source?.[y]?.[x] ?? 0
-            )
-        );
+      function normalizePoint(point) {
+        return {
+          x: Number(point?.x) || 0,
+          y: Number(point?.y) || 0
+        };
+      }
+
+      function normalizePath(path, index) {
+        return {
+          id:
+            String(path?.id || `path-${index}`),
+
+          type: "polygon",
+
+          points: Array.isArray(path?.points)
+            ? path.points.map(normalizePoint)
+            : []
+        };
       }
 
       function normalizeMap(data) {
         if (
           !data ||
-          !Number.isInteger(data.columns) ||
-          !Number.isInteger(data.rows)
+          !Number.isFinite(Number(data.width)) ||
+          !Number.isFinite(Number(data.height))
         ) {
-          throw new Error("地圖格式錯誤。");
+          throw new Error("地圖尺寸格式錯誤。");
         }
 
-        data.tileSize = TILE_SIZE;
+        data.width =
+          Math.max(320, Number(data.width));
 
-        if (!data.layers) {
-          data.layers = {};
-        }
-
-        data.layers.collision =
-          normalizeLayer(
-            data.layers.collision,
-            data.columns,
-            data.rows
-          );
-
-        data.layers.foreground =
-          normalizeLayer(
-            data.layers.foreground,
-            data.columns,
-            data.rows
-          );
-
-        if (!Array.isArray(data.objects)) {
-          data.objects = [];
-        }
+        data.height =
+          Math.max(240, Number(data.height));
 
         if (!data.assets) {
-          data.assets = {
-            backgrounds: []
-          };
+          data.assets = {};
         }
 
         if (!Array.isArray(data.assets.backgrounds)) {
           data.assets.backgrounds = [];
         }
+
+        if (!Array.isArray(data.collisionPaths)) {
+          data.collisionPaths = [];
+        }
+
+        if (!Array.isArray(data.foregroundPaths)) {
+          data.foregroundPaths = [];
+        }
+
+        if (!Array.isArray(data.objects)) {
+          data.objects = [];
+        }
+
+        data.collisionPaths =
+          data.collisionPaths.map(normalizePath);
+
+        data.foregroundPaths =
+          data.foregroundPaths.map(normalizePath);
+
+        data.objects = data.objects.map(
+          (object, index) => ({
+            id:
+              String(
+                object.id ||
+                `${object.type || "object"}-${index}`
+              ),
+
+            type:
+              String(object.type || "unknown"),
+
+            x:
+              Number(object.x) || 0,
+
+            y:
+              Number(object.y) || 0
+          })
+        );
 
         return data;
       }
@@ -531,14 +562,7 @@
         }
       }
 
-      function tileCenter(tileCoordinate) {
-        return (
-          tileCoordinate * TILE_SIZE +
-          TILE_SIZE / 2
-        );
-      }
-
-      function findObject(type) {
+      function findMapObject(type) {
         return activeMap.objects.find(
           (object) => object.type === type
         );
@@ -546,17 +570,17 @@
 
       function createGameState() {
         const spawn =
-          findObject("playerSpawn") || {
-            x: 2,
-            y: 2
+          findMapObject("playerSpawn") || {
+            x: 160,
+            y: 160
           };
 
         return {
           player: {
-            x: tileCenter(spawn.x),
-            y: tileCenter(spawn.y),
+            x: spawn.x,
+            y: spawn.y,
 
-            radius: 12,
+            radius: 10,
             speed: 190,
 
             maxHp: 5,
@@ -576,13 +600,13 @@
               (object) =>
                 object.type === "enemy"
             )
-            .map((object, index) => ({
-              id: index,
+            .map((object) => ({
+              id: object.id,
 
-              x: tileCenter(object.x),
-              y: tileCenter(object.y),
+              x: object.x,
+              y: object.y,
 
-              radius: 12,
+              radius: 10,
               speed: 56,
 
               maxHp: 3,
@@ -598,13 +622,12 @@
                 object.type === "key" ||
                 object.type === "chest"
             )
-            .map((object, index) => ({
-              id: index,
-
+            .map((object) => ({
+              id: object.id,
               type: object.type,
 
-              x: tileCenter(object.x),
-              y: tileCenter(object.y),
+              x: object.x,
+              y: object.y,
 
               collected: false
             })),
@@ -618,8 +641,8 @@
       }
 
       function loadBackground() {
-        backgroundReady = false;
         backgroundImage = null;
+        backgroundReady = false;
 
         const source =
           activeMap.background?.src;
@@ -633,7 +656,6 @@
           activeMap.background?.visible === false
         ) {
           loadingOverlay.classList.add("hidden");
-          backgroundReady = false;
           return;
         }
 
@@ -683,61 +705,140 @@
         updateInterface();
       }
 
-      function getTilePosition(
-        pixelX,
-        pixelY
+      function pointInPolygon(
+        pointX,
+        pointY,
+        polygonPoints
       ) {
-        return {
-          x: Math.floor(pixelX / TILE_SIZE),
-          y: Math.floor(pixelY / TILE_SIZE)
-        };
+        let inside = false;
+
+        for (
+          let current = 0,
+            previous = polygonPoints.length - 1;
+
+          current < polygonPoints.length;
+
+          previous = current++
+        ) {
+          const currentPoint =
+            polygonPoints[current];
+
+          const previousPoint =
+            polygonPoints[previous];
+
+          const denominator =
+            previousPoint.y -
+            currentPoint.y;
+
+          const safeDenominator =
+            denominator === 0
+              ? Number.EPSILON
+              : denominator;
+
+          const intersects =
+            currentPoint.y > pointY !==
+              previousPoint.y > pointY &&
+            pointX <
+              (
+                (
+                  previousPoint.x -
+                  currentPoint.x
+                ) *
+                (
+                  pointY -
+                  currentPoint.y
+                )
+              ) /
+                safeDenominator +
+                currentPoint.x;
+
+          if (intersects) {
+            inside = !inside;
+          }
+        }
+
+        return inside;
       }
 
-      function isInsideMap(tileX, tileY) {
-        return (
-          tileX >= 0 &&
-          tileY >= 0 &&
-          tileX < activeMap.columns &&
-          tileY < activeMap.rows
-        );
-      }
-
-      function isBlockedPoint(
-        pixelX,
-        pixelY
-      ) {
-        const tile =
-          getTilePosition(pixelX, pixelY);
-
-        if (!isInsideMap(tile.x, tile.y)) {
+      function isPointBlocked(pointX, pointY) {
+        if (
+          pointX < 0 ||
+          pointY < 0 ||
+          pointX > activeMap.width ||
+          pointY > activeMap.height
+        ) {
           return true;
         }
 
-        return (
-          activeMap.layers.collision
-            [tile.y][tile.x] === 1
+        return activeMap.collisionPaths.some(
+          (path) =>
+            path.points.length >= 3 &&
+            pointInPolygon(
+              pointX,
+              pointY,
+              path.points
+            )
         );
       }
 
-      function isBlockedPosition(
-        pixelX,
-        pixelY,
+      function isCircleBlocked(
+        centerX,
+        centerY,
         radius
       ) {
-        const points = [
-          [pixelX - radius, pixelY - radius],
-          [pixelX + radius, pixelY - radius],
-          [pixelX - radius, pixelY + radius],
-          [pixelX + radius, pixelY + radius],
+        const diagonal =
+          radius * 0.72;
 
-          [pixelX, pixelY - radius],
-          [pixelX, pixelY + radius],
-          [pixelX - radius, pixelY],
-          [pixelX + radius, pixelY]
+        const samplePoints = [
+          { x: centerX, y: centerY },
+
+          {
+            x: centerX - radius,
+            y: centerY
+          },
+
+          {
+            x: centerX + radius,
+            y: centerY
+          },
+
+          {
+            x: centerX,
+            y: centerY - radius
+          },
+
+          {
+            x: centerX,
+            y: centerY + radius
+          },
+
+          {
+            x: centerX - diagonal,
+            y: centerY - diagonal
+          },
+
+          {
+            x: centerX + diagonal,
+            y: centerY - diagonal
+          },
+
+          {
+            x: centerX - diagonal,
+            y: centerY + diagonal
+          },
+
+          {
+            x: centerX + diagonal,
+            y: centerY + diagonal
+          }
         ];
 
-        return points.some(
-          ([x, y]) => isBlockedPoint(x, y)
+        return samplePoints.some(
+          (point) =>
+            isPointBlocked(
+              point.x,
+              point.y
+            )
         );
       }
 
@@ -750,7 +851,7 @@
           entity.x + movementX;
 
         if (
-          !isBlockedPosition(
+          !isCircleBlocked(
             nextX,
             entity.y,
             entity.radius
@@ -763,7 +864,7 @@
           entity.y + movementY;
 
         if (
-          !isBlockedPosition(
+          !isCircleBlocked(
             entity.x,
             nextY,
             entity.radius
@@ -785,16 +886,13 @@
 
       function resetPlayerPosition() {
         const spawn =
-          findObject("playerSpawn") || {
-            x: 2,
-            y: 2
+          findMapObject("playerSpawn") || {
+            x: 160,
+            y: 160
           };
 
-        gameState.player.x =
-          tileCenter(spawn.x);
-
-        gameState.player.y =
-          tileCenter(spawn.y);
+        gameState.player.x = spawn.x;
+        gameState.player.y = spawn.y;
 
         setStatus("返回出生點");
       }
@@ -821,12 +919,13 @@
             continue;
           }
 
-          const distance = Math.hypot(
-            enemy.x - attackX,
-            enemy.y - attackY
-          );
+          const distance =
+            Math.hypot(
+              enemy.x - attackX,
+              enemy.y - attackY
+            );
 
-          if (distance > 36) {
+          if (distance > 38) {
             continue;
           }
 
@@ -849,7 +948,7 @@
       }
 
       function attemptInteraction() {
-        setStatus("目前附近沒有可互動物件");
+        setStatus("附近沒有可互動物件");
       }
 
       function updatePlayer(deltaTime) {
@@ -878,10 +977,11 @@
           movementX !== 0 ||
           movementY !== 0
         ) {
-          const length = Math.hypot(
-            movementX,
-            movementY
-          );
+          const length =
+            Math.hypot(
+              movementX,
+              movementY
+            );
 
           movementX /= length;
           movementY /= length;
@@ -891,6 +991,7 @@
 
           moveEntity(
             player,
+
             movementX *
               player.speed *
               deltaTime,
@@ -901,14 +1002,20 @@
           );
         }
 
-        if (input.space && !attackPressed) {
+        if (
+          input.space &&
+          !attackPressed
+        ) {
           performAttack();
         }
 
         attackPressed =
           Boolean(input.space);
 
-        if (input.e && !interactPressed) {
+        if (
+          input.e &&
+          !interactPressed
+        ) {
           attemptInteraction();
         }
 
@@ -922,7 +1029,8 @@
 
         player.invulnerableTime = Math.max(
           0,
-          player.invulnerableTime - deltaTime
+          player.invulnerableTime -
+            deltaTime
         );
       }
 
@@ -943,7 +1051,7 @@
             distanceBetween(enemy, player);
 
           if (
-            distance < 250 &&
+            distance < 260 &&
             distance > 28
           ) {
             const directionX =
@@ -972,6 +1080,7 @@
             player.invulnerableTime <= 0
           ) {
             player.hp -= 1;
+
             player.invulnerableTime = 1;
 
             setStatus("受到敵人攻擊");
@@ -1000,7 +1109,7 @@
             distanceBetween(
               pickup,
               player
-            ) > 26
+            ) > 27
           ) {
             continue;
           }
@@ -1014,42 +1123,35 @@
 
           if (pickup.type === "chest") {
             player.hp = player.maxHp;
-            setStatus("開啟寶箱，生命恢復");
+
+            setStatus(
+              "開啟寶箱，生命恢復"
+            );
           }
         }
       }
 
       function updateExit() {
         const exit =
-          findObject("exit");
+          findMapObject("exit");
 
         if (!exit) {
           return;
         }
 
-        const exitPosition = {
-          x: tileCenter(exit.x),
-          y: tileCenter(exit.y)
-        };
-
         if (
           distanceBetween(
             gameState.player,
-            exitPosition
-          ) < 28
+            exit
+          ) < 30
         ) {
           gameState.completed = true;
+
           setStatus("出生區探索完成");
         }
       }
 
       function updateCamera(deltaTime) {
-        const worldWidth =
-          activeMap.columns * TILE_SIZE;
-
-        const worldHeight =
-          activeMap.rows * TILE_SIZE;
-
         const targetX =
           gameState.player.x -
           VIEW_WIDTH / 2;
@@ -1058,25 +1160,31 @@
           gameState.player.y -
           VIEW_HEIGHT / 2;
 
-        const maxX = Math.max(
-          0,
-          worldWidth - VIEW_WIDTH
-        );
+        const maxX =
+          Math.max(
+            0,
+            activeMap.width -
+              VIEW_WIDTH
+          );
 
-        const maxY = Math.max(
-          0,
-          worldHeight - VIEW_HEIGHT
-        );
+        const maxY =
+          Math.max(
+            0,
+            activeMap.height -
+              VIEW_HEIGHT
+          );
 
-        const finalX = Math.min(
-          maxX,
-          Math.max(0, targetX)
-        );
+        const finalX =
+          Math.min(
+            maxX,
+            Math.max(0, targetX)
+          );
 
-        const finalY = Math.min(
-          maxY,
-          Math.max(0, targetY)
-        );
+        const finalY =
+          Math.min(
+            maxY,
+            Math.max(0, targetY)
+          );
 
         const followSpeed =
           Math.min(1, deltaTime * 8);
@@ -1135,19 +1243,13 @@
           return;
         }
 
-        const worldWidth =
-          activeMap.columns * TILE_SIZE;
-
-        const worldHeight =
-          activeMap.rows * TILE_SIZE;
-
         const scaleX =
           backgroundImage.naturalWidth /
-          worldWidth;
+          activeMap.width;
 
         const scaleY =
           backgroundImage.naturalHeight /
-          worldHeight;
+          activeMap.height;
 
         const sourceX =
           camera.x * scaleX;
@@ -1156,10 +1258,20 @@
           camera.y * scaleY;
 
         const sourceWidth =
-          VIEW_WIDTH * scaleX;
+          Math.min(
+            backgroundImage.naturalWidth -
+              sourceX,
+
+            VIEW_WIDTH * scaleX
+          );
 
         const sourceHeight =
-          VIEW_HEIGHT * scaleY;
+          Math.min(
+            backgroundImage.naturalHeight -
+              sourceY,
+
+            VIEW_HEIGHT * scaleY
+          );
 
         context.save();
 
@@ -1176,8 +1288,9 @@
 
           0,
           0,
-          VIEW_WIDTH,
-          VIEW_HEIGHT
+
+          sourceWidth / scaleX,
+          sourceHeight / scaleY
         );
 
         context.restore();
@@ -1214,6 +1327,13 @@
             screenY - 2,
             16,
             4
+          );
+
+          context.fillRect(
+            screenX + 10,
+            screenY,
+            3,
+            7
           );
         }
 
@@ -1310,7 +1430,7 @@
         context.arc(
           screenX,
           screenY,
-          player.radius,
+          player.radius + 2,
           0,
           Math.PI * 2
         );
@@ -1362,42 +1482,49 @@
         }
       }
 
-      function drawForeground() {
-        const layer =
-          activeMap.layers.foreground;
-
+      function drawForegroundPaths() {
         for (
-          let y = 0;
-          y < activeMap.rows;
-          y += 1
+          const path of
+          activeMap.foregroundPaths
         ) {
+          if (path.points.length < 3) {
+            continue;
+          }
+
+          context.save();
+
+          context.beginPath();
+
+          context.moveTo(
+            path.points[0].x -
+              camera.x,
+
+            path.points[0].y -
+              camera.y
+          );
+
           for (
-            let x = 0;
-            x < activeMap.columns;
-            x += 1
+            let index = 1;
+            index < path.points.length;
+            index += 1
           ) {
-            if (layer[y][x] !== 1) {
-              continue;
-            }
+            context.lineTo(
+              path.points[index].x -
+                camera.x,
 
-            const screenX =
-              x * TILE_SIZE -
-              camera.x;
-
-            const screenY =
-              y * TILE_SIZE -
-              camera.y;
-
-            context.fillStyle =
-              "rgba(21, 46, 27, 0.72)";
-
-            context.fillRect(
-              screenX,
-              screenY,
-              TILE_SIZE,
-              TILE_SIZE
+              path.points[index].y -
+                camera.y
             );
           }
+
+          context.closePath();
+
+          context.fillStyle =
+            "rgba(18, 42, 24, 0.60)";
+
+          context.fill();
+
+          context.restore();
         }
       }
 
@@ -1450,24 +1577,34 @@
 
         drawBackground();
 
-        for (const pickup of gameState.pickups) {
+        for (
+          const pickup of
+          gameState.pickups
+        ) {
           drawPickup(pickup);
         }
 
-        for (const enemy of gameState.enemies) {
+        for (
+          const enemy of
+          gameState.enemies
+        ) {
           drawEnemy(enemy);
         }
 
         drawPlayer();
-        drawForeground();
+        drawForegroundPaths();
         drawCompletedOverlay();
       }
 
       function gameLoop(currentTime) {
-        const deltaTime = Math.min(
-          0.033,
-          (currentTime - previousTime) / 1000
-        );
+        const deltaTime =
+          Math.min(
+            0.033,
+            (
+              currentTime -
+              previousTime
+            ) / 1000
+          );
 
         previousTime = currentTime;
 
@@ -1506,8 +1643,9 @@
       window.addEventListener(
         "keyup",
         (event) => {
-          input[event.key.toLowerCase()] =
-            false;
+          input[
+            event.key.toLowerCase()
+          ] = false;
         }
       );
 
@@ -1529,22 +1667,30 @@
         "click",
         () => {
           initializeGame();
-          setStatus("已重新讀取地圖");
+
+          setStatus(
+            "已重新讀取地圖"
+          );
         }
       );
 
       resetGameButton.addEventListener(
         "click",
         () => {
-          gameState = createGameState();
+          gameState =
+            createGameState();
+
           camera.x = 0;
           camera.y = 0;
 
-          setStatus("遊戲進度已重置");
+          setStatus(
+            "遊戲進度已重置"
+          );
         }
       );
 
       initializeGame();
+
       requestAnimationFrame(gameLoop);
     })();
   </script>
