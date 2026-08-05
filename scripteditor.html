@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ScriptEditor 地圖編輯器</title>
+  <style>
+    :root{
+      --bg:#111712;--panel:#1b241d;--panel2:#253029;--text:#f3f1df;
+      --muted:#aeb9ad;--accent:#d7b56d;--line:#3b493d;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:#0c110d;
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+    }
+    header{
+      position:sticky;top:0;z-index:10;
+      display:flex;justify-content:space-between;align-items:center;gap:14px;
+      padding:14px 18px;background:rgba(17,23,18,.96);
+      border-bottom:1px solid var(--line);
+    }
+    h1{font-size:20px;margin:0}
+    .layout{
+      display:grid;
+      grid-template-columns:240px 1fr 300px;
+      gap:14px;padding:14px;
+      min-height:calc(100vh - 64px);
+    }
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+    }
+    .tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    button,.button{
+      border:1px solid #59675b;
+      background:#2a372d;color:var(--text);
+      padding:10px;border-radius:9px;cursor:pointer;
+      font-weight:700;text-decoration:none;text-align:center;
+    }
+    button:hover,.button:hover{background:#354538}
+    button.active{outline:2px solid var(--accent);background:#46543f}
+    .tile-preview{
+      width:22px;height:22px;display:inline-block;
+      border-radius:4px;margin-right:6px;vertical-align:middle;
+    }
+    .canvas-wrap{
+      overflow:auto;
+      background:#070a08;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      display:grid;
+      place-items:start center;
+    }
+    canvas{
+      image-rendering:pixelated;
+      background:#3f7747;
+      border:1px solid #607064;
+      cursor:crosshair;
+      max-width:none;
+    }
+    label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+    input,textarea,select{
+      width:100%;
+      background:#101612;color:var(--text);
+      border:1px solid #47544a;border-radius:8px;
+      padding:9px;
+    }
+    textarea{min-height:280px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+    .stack{display:grid;gap:8px}
+    .hint{font-size:12px;line-height:1.6;color:var(--muted);margin-top:12px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .status{font-size:13px;color:var(--accent)}
+    @media(max-width:1000px){
+      .layout{grid-template-columns:1fr}
+      .canvas-wrap{order:-1}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>ScriptEditor｜迷霧遺跡地圖編輯器</h1>
+    <div class="status" id="status">尚未儲存</div>
+  </div>
+  <a class="button" href="index.html">開啟遊戲</a>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <strong>地形工具</strong>
+    <div class="tools" id="tileTools"></div>
+
+    <label>物件工具</label>
+    <div class="tools" id="objectTools"></div>
+
+    <div class="stack" style="margin-top:14px">
+      <button id="saveBtn">儲存到瀏覽器</button>
+      <button id="clearBtn">清空地圖</button>
+      <button id="defaultBtn">還原範例</button>
+    </div>
+
+    <div class="hint">
+      左鍵繪製。按住滑鼠可連續繪製。<br>
+      物件再次點擊同一格可移除。<br>
+      玩家出生點僅保留一個。
+    </div>
+  </aside>
+
+  <section class="canvas-wrap">
+    <canvas id="editor" width="768" height="576"></canvas>
+  </section>
+
+  <aside class="panel">
+    <strong>地圖資料</strong>
+
+    <div class="row">
+      <div>
+        <label>欄數</label>
+        <input id="cols" type="number" min="6" max="60" value="16">
+      </div>
+      <div>
+        <label>列數</label>
+        <input id="rows" type="number" min="6" max="40" value="12">
+      </div>
+    </div>
+
+    <button id="resizeBtn" style="margin-top:8px;width:100%">調整地圖尺寸</button>
+
+    <label>JSON</label>
+    <textarea id="jsonBox"></textarea>
+
+    <div class="stack">
+      <button id="applyJsonBtn">套用 JSON</button>
+      <button id="exportBtn">下載 JSON</button>
+      <label class="button" for="importFile">匯入 JSON 檔</label>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+</main>
+
+<script>
+(() => {
+  const TILE=48;
+  const canvas=document.getElementById("editor");
+  const ctx=canvas.getContext("2d");
+  ctx.imageSmoothingEnabled=false;
+
+  const tileDefs=[
+    {id:0,name:"草地",color:"#3f7747"},
+    {id:1,name:"牆壁",color:"#243027"},
+    {id:2,name:"樹木",color:"#315c36"},
+    {id:3,name:"水域",color:"#2e6883"},
+    {id:4,name:"門",color:"#9d7544"},
+    {id:5,name:"終點",color:"#b69a50"}
+  ];
+  const objectDefs=[
+    {id:"playerSpawn",name:"出生點"},
+    {id:"enemy",name:"敵人"},
+    {id:"key",name:"鑰匙"},
+    {id:"chest",name:"寶箱"},
+    {id:"eraseObject",name:"移除物件"}
+  ];
+
+  const defaultMap={
+    version:1,cols:16,rows:12,tileSize:TILE,
+    tiles:[
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+      [1,0,2,2,2,0,0,0,2,2,2,0,0,0,0,1],
+      [1,0,2,0,0,0,0,0,0,0,2,0,0,4,0,1],
+      [1,0,2,0,1,1,1,0,0,0,2,0,0,0,0,1],
+      [1,0,0,0,1,3,1,0,0,0,0,0,2,2,0,1],
+      [1,0,0,0,1,0,1,0,0,0,0,0,2,0,0,1],
+      [1,0,2,0,1,0,1,0,0,0,2,0,2,0,0,1],
+      [1,0,2,0,1,0,0,0,2,0,2,0,0,0,0,1],
+      [1,0,2,0,1,1,1,1,2,0,2,2,2,0,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,5,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ],
+    objects:[
+      {type:"playerSpawn",x:1,y:1},
+      {type:"enemy",x:7,y:3},
+      {type:"enemy",x:11,y:8},
+      {type:"key",x:5,y:5},
+      {type:"chest",x:13,y:9}
+    ]
+  };
+
+  let map=load();
+  let mode={kind:"tile",value:0};
+  let drawing=false;
+
+  function clone(v){return JSON.parse(JSON.stringify(v))}
+  function load(){
+    try{
+      const raw=localStorage.getItem("mistRuinsMap");
+      return raw?JSON.parse(raw):clone(defaultMap);
+    }catch{return clone(defaultMap)}
+  }
+
+  function buildTools(){
+    const tileRoot=document.getElementById("tileTools");
+    tileDefs.forEach(d=>{
+      const b=document.createElement("button");
+      b.innerHTML=`<span class="tile-preview" style="background:${d.color}"></span>${d.name}`;
+      b.onclick=()=>selectTool("tile",d.id,b);
+      if(d.id===0)b.classList.add("active");
+      tileRoot.appendChild(b);
+    });
+    const objRoot=document.getElementById("objectTools");
+    objectDefs.forEach(d=>{
+      const b=document.createElement("button");
+      b.textContent=d.name;
+      b.onclick=()=>selectTool("object",d.id,b);
+      objRoot.appendChild(b);
+    });
+  }
+
+  function selectTool(kind,value,btn){
+    mode={kind,value};
+    document.querySelectorAll(".tools button").forEach(x=>x.classList.remove("active"));
+    btn.classList.add("active");
+  }
+
+  function syncCanvas(){
+    canvas.width=map.cols*TILE;
+    canvas.height=map.rows*TILE;
+    document.getElementById("cols").value=map.cols;
+    document.getElementById("rows").value=map.rows;
+    updateJson();
+    draw();
+  }
+
+  function resizeMap(cols,rows){
+    cols=Math.max(6,Math.min(60,cols));
+    rows=Math.max(6,Math.min(40,rows));
+    const next=Array.from({length:rows},(_,y)=>
+      Array.from({length:cols},(_,x)=>map.tiles[y]?.[x] ?? 0)
+    );
+    map.tiles=next;
+    map.cols=cols;
+    map.rows=rows;
+    map.objects=(map.objects||[]).filter(o=>o.x<cols&&o.y<rows);
+    syncCanvas();
+  }
+
+  function cellFromEvent(e){
+    const r=canvas.getBoundingClientRect();
+    const sx=canvas.width/r.width;
+    const sy=canvas.height/r.height;
+    return {
+      x:Math.floor((e.clientX-r.left)*sx/TILE),
+      y:Math.floor((e.clientY-r.top)*sy/TILE)
+    };
+  }
+
+  function paint(e){
+    const {x,y}=cellFromEvent(e);
+    if(x<0||y<0||x>=map.cols||y>=map.rows)return;
+    if(mode.kind==="tile"){
+      map.tiles[y][x]=mode.value;
+    }else{
+      map.objects=map.objects||[];
+      if(mode.value==="eraseObject"){
+        map.objects=map.objects.filter(o=>!(o.x===x&&o.y===y));
+      }else{
+        if(mode.value==="playerSpawn"){
+          map.objects=map.objects.filter(o=>o.type!=="playerSpawn");
+        }
+        const idx=map.objects.findIndex(o=>o.x===x&&o.y===y&&o.type===mode.value);
+        if(idx>=0) map.objects.splice(idx,1);
+        else map.objects.push({type:mode.value,x,y});
+      }
+    }
+    updateJson();
+    draw();
+  }
+
+  canvas.addEventListener("mousedown",e=>{drawing=true;paint(e)});
+  canvas.addEventListener("mousemove",e=>{
+    if(drawing&&mode.kind==="tile")paint(e);
+  });
+  addEventListener("mouseup",()=>drawing=false);
+
+  function updateJson(){
+    document.getElementById("jsonBox").value=JSON.stringify(map,null,2);
+    document.getElementById("status").textContent="尚未儲存";
+  }
+
+  function drawTile(x,y,t){
+    const def=tileDefs.find(d=>d.id===t) || tileDefs[0];
+    ctx.fillStyle=def.color;
+    ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+    ctx.strokeStyle="rgba(255,255,255,.10)";
+    ctx.strokeRect(x*TILE,y*TILE,TILE,TILE);
+    if(t===1){
+      ctx.fillStyle="#18201a";
+      ctx.fillRect(x*TILE+6,y*TILE+6,TILE-12,TILE-12);
+    }
+    if(t===2){
+      ctx.fillStyle="#24462a";
+      ctx.beginPath();ctx.arc(x*TILE+24,y*TILE+24,17,0,Math.PI*2);ctx.fill();
+    }
+    if(t===3){
+      ctx.fillStyle="rgba(255,255,255,.16)";
+      ctx.fillRect(x*TILE+6,y*TILE+12,TILE-12,4);
+      ctx.fillRect(x*TILE+12,y*TILE+28,TILE-20,3);
+    }
+    if(t===4){
+      ctx.fillStyle="#6d4d2b";ctx.fillRect(x*TILE+8,y*TILE+4,TILE-16,TILE-8);
+    }
+    if(t===5){
+      ctx.strokeStyle="#f2d77c";ctx.lineWidth=4;
+      ctx.strokeRect(x*TILE+10,y*TILE+10,TILE-20,TILE-20);
+      ctx.lineWidth=1;
+    }
+  }
+
+  function drawObject(o){
+    const cx=o.x*TILE+TILE/2,cy=o.y*TILE+TILE/2;
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    if(o.type==="playerSpawn"){
+      ctx.fillStyle="#d7b56d";ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#111";ctx.font="700 10px system-ui";ctx.fillText("P",cx,cy);
+    }else if(o.type==="enemy"){
+      ctx.fillStyle="#a14f58";ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#fff";ctx.font="700 10px system-ui";ctx.fillText("E",cx,cy);
+    }else if(o.type==="key"){
+      ctx.fillStyle="#f2d77c";ctx.beginPath();ctx.arc(cx-4,cy,7,0,Math.PI*2);ctx.fill();
+      ctx.fillRect(cx+1,cy-2,14,4);
+    }else if(o.type==="chest"){
+      ctx.fillStyle="#855d35";ctx.fillRect(cx-14,cy-10,28,20);
+      ctx.fillStyle="#d7b56d";ctx.fillRect(cx-2,cy-3,4,8);
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for(let y=0;y<map.rows;y++)
+      for(let x=0;x<map.cols;x++)
+        drawTile(x,y,map.tiles[y][x]);
+    (map.objects||[]).forEach(drawObject);
+  }
+
+  document.getElementById("saveBtn").onclick=()=>{
+    localStorage.setItem("mistRuinsMap",JSON.stringify(map));
+    document.getElementById("status").textContent="已儲存，可回遊戲重新讀取";
+  };
+  document.getElementById("clearBtn").onclick=()=>{
+    map.tiles=Array.from({length:map.rows},()=>Array(map.cols).fill(0));
+    map.objects=[];
+    syncCanvas();
+  };
+  document.getElementById("defaultBtn").onclick=()=>{
+    map=clone(defaultMap);syncCanvas();
+  };
+  document.getElementById("resizeBtn").onclick=()=>{
+    resizeMap(
+      Number(document.getElementById("cols").value),
+      Number(document.getElementById("rows").value)
+    );
+  };
+  document.getElementById("applyJsonBtn").onclick=()=>{
+    try{
+      const parsed=JSON.parse(document.getElementById("jsonBox").value);
+      if(!Array.isArray(parsed.tiles))throw new Error("tiles 缺失");
+      map=parsed;
+      map.tileSize=TILE;
+      syncCanvas();
+    }catch(err){
+      alert("JSON 格式錯誤："+err.message);
+    }
+  };
+  document.getElementById("exportBtn").onclick=()=>{
+    const blob=new Blob([JSON.stringify(map,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download="mist-ruins-map.json";a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById("importFile").onchange=async e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    try{
+      map=JSON.parse(await file.text());
+      syncCanvas();
+    }catch(err){alert("無法匯入："+err.message)}
+  };
+
+  buildTools();
+  syncCanvas();
+})();
+</script>
+</body>
+</html>
