@@ -72,9 +72,9 @@
     .editor-layout {
       display: grid;
       grid-template-columns:
-        250px
+        260px
         minmax(0, 1fr)
-        320px;
+        330px;
 
       gap: 14px;
       padding: 14px;
@@ -101,7 +101,7 @@
 
     .canvas-panel {
       min-width: 0;
-      min-height: 680px;
+      min-height: 720px;
       padding: 14px;
 
       overflow: auto;
@@ -179,13 +179,10 @@
     textarea,
     select {
       width: 100%;
-
       border: 1px solid #48564b;
       border-radius: 8px;
-
       background: #0e1410;
       color: var(--text);
-
       font: inherit;
     }
 
@@ -197,7 +194,6 @@
     textarea {
       min-height: 280px;
       padding: 10px;
-
       resize: vertical;
 
       font-family:
@@ -220,7 +216,7 @@
       gap: 8px;
     }
 
-    .current-layer {
+    .current-mode {
       margin-bottom: 12px;
       padding: 9px;
 
@@ -238,7 +234,7 @@
       margin-top: 13px;
       color: var(--muted);
       font-size: 12px;
-      line-height: 1.65;
+      line-height: 1.7;
     }
 
     .asset-preview {
@@ -271,9 +267,9 @@
       text-align: center;
     }
 
-    .asset-item {
+    .list-item {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 8px;
       align-items: center;
 
@@ -286,7 +282,7 @@
       background: #111812;
     }
 
-    .asset-item-name {
+    .list-item-name {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -294,7 +290,7 @@
       font-size: 13px;
     }
 
-    .asset-item button {
+    .list-item button {
       width: auto;
       padding: 6px 9px;
       font-size: 12px;
@@ -302,9 +298,23 @@
 
     .opacity-row {
       display: grid;
-      grid-template-columns: 1fr 45px;
+      grid-template-columns: 1fr 48px;
       gap: 8px;
       align-items: center;
+    }
+
+    .path-status {
+      margin-top: 12px;
+      padding: 10px;
+
+      border: 1px solid #555b43;
+      border-radius: 8px;
+
+      background: #22271c;
+
+      color: #ecd788;
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     @media (max-width: 1080px) {
@@ -314,7 +324,7 @@
 
       .canvas-panel {
         order: -1;
-        min-height: 400px;
+        min-height: 420px;
       }
     }
   </style>
@@ -338,33 +348,47 @@
   <main class="editor-layout">
     <aside class="panel">
       <div class="panel-title">
-        編輯圖層
+        編輯模式
       </div>
 
       <div
-        id="currentLayerText"
-        class="current-layer"
+        id="currentModeText"
+        class="current-mode"
       >
-        目前圖層：碰撞層
+        目前模式：碰撞 Path
       </div>
 
-      <div id="layerButtons" class="stack"></div>
+      <div id="modeButtons" class="stack"></div>
 
       <div class="section">
         <div class="panel-title">
-          工具
+          物件工具
         </div>
 
-        <div id="toolButtons" class="tool-grid"></div>
+        <div id="objectButtons" class="tool-grid"></div>
+      </div>
+
+      <div id="pathStatus" class="path-status">
+        尚未開始繪製 Path
+      </div>
+
+      <div class="section stack">
+        <button id="finishPathButton" type="button">
+          完成目前 Path
+        </button>
+
+        <button id="undoPointButton" type="button">
+          移除上一個錨點
+        </button>
+
+        <button id="cancelPathButton" type="button">
+          取消目前 Path
+        </button>
       </div>
 
       <div class="section stack">
         <button id="saveButton" type="button">
           儲存到瀏覽器
-        </button>
-
-        <button id="clearLayerButton" type="button">
-          清空目前圖層
         </button>
 
         <button id="resetDefaultButton" type="button">
@@ -373,9 +397,11 @@
       </div>
 
       <div class="helper-text">
-        碰撞層紅色區域代表不可通行。<br>
-        前景層會繪製在玩家上方。<br>
-        物件層可放置玩家、敵人、鑰匙、寶箱與終點。
+        左鍵：新增錨點。<br>
+        滑鼠移動：預覽下一條線。<br>
+        Enter：完成並閉合 Path。<br>
+        Backspace：移除上一個錨點。<br>
+        右鍵／Esc：取消目前 Path。
       </div>
     </aside>
 
@@ -447,6 +473,13 @@
         >
           套用為目前背景
         </button>
+
+        <button
+          id="syncSizeButton"
+          type="button"
+        >
+          地圖尺寸同步背景圖片
+        </button>
       </div>
 
       <label for="backgroundOpacityInput">
@@ -477,30 +510,30 @@
 
         <div class="dimension-grid">
           <div>
-            <label for="columnsInput">
-              欄數
+            <label for="mapWidthInput">
+              寬度 px
             </label>
 
             <input
-              id="columnsInput"
+              id="mapWidthInput"
               type="number"
-              min="12"
-              max="100"
-              value="48"
+              min="320"
+              max="10000"
+              value="1920"
             >
           </div>
 
           <div>
-            <label for="rowsInput">
-              列數
+            <label for="mapHeightInput">
+              高度 px
             </label>
 
             <input
-              id="rowsInput"
+              id="mapHeightInput"
               type="number"
-              min="10"
-              max="80"
-              value="27"
+              min="240"
+              max="10000"
+              value="1080"
             >
           </div>
         </div>
@@ -510,8 +543,16 @@
           type="button"
           style="margin-top: 9px"
         >
-          調整地圖尺寸
+          套用地圖尺寸
         </button>
+      </div>
+
+      <div class="section">
+        <div class="panel-title">
+          Path 清單
+        </div>
+
+        <div id="pathList"></div>
       </div>
 
       <div class="section">
@@ -549,8 +590,7 @@
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "mistRuinsMapV3";
-      const TILE_SIZE = 40;
+      const STORAGE_KEY = "mistRuinsMapV4";
 
       const canvas =
         document.getElementById("editorCanvas");
@@ -567,14 +607,32 @@
       const saveStatus =
         document.getElementById("saveStatus");
 
-      const currentLayerText =
-        document.getElementById("currentLayerText");
+      const currentModeText =
+        document.getElementById("currentModeText");
 
-      const layerButtons =
-        document.getElementById("layerButtons");
+      const modeButtons =
+        document.getElementById("modeButtons");
 
-      const toolButtons =
-        document.getElementById("toolButtons");
+      const objectButtons =
+        document.getElementById("objectButtons");
+
+      const pathStatus =
+        document.getElementById("pathStatus");
+
+      const finishPathButton =
+        document.getElementById("finishPathButton");
+
+      const undoPointButton =
+        document.getElementById("undoPointButton");
+
+      const cancelPathButton =
+        document.getElementById("cancelPathButton");
+
+      const saveButton =
+        document.getElementById("saveButton");
+
+      const resetDefaultButton =
+        document.getElementById("resetDefaultButton");
 
       const assetNameInput =
         document.getElementById("assetNameInput");
@@ -600,6 +658,9 @@
       const applyBackgroundButton =
         document.getElementById("applyBackgroundButton");
 
+      const syncSizeButton =
+        document.getElementById("syncSizeButton");
+
       const backgroundOpacityInput =
         document.getElementById("backgroundOpacityInput");
 
@@ -609,26 +670,20 @@
       const assetList =
         document.getElementById("assetList");
 
-      const columnsInput =
-        document.getElementById("columnsInput");
+      const mapWidthInput =
+        document.getElementById("mapWidthInput");
 
-      const rowsInput =
-        document.getElementById("rowsInput");
+      const mapHeightInput =
+        document.getElementById("mapHeightInput");
 
       const resizeButton =
         document.getElementById("resizeButton");
 
+      const pathList =
+        document.getElementById("pathList");
+
       const jsonTextarea =
         document.getElementById("jsonTextarea");
-
-      const saveButton =
-        document.getElementById("saveButton");
-
-      const clearLayerButton =
-        document.getElementById("clearLayerButton");
-
-      const resetDefaultButton =
-        document.getElementById("resetDefaultButton");
 
       const applyJsonButton =
         document.getElementById("applyJsonButton");
@@ -639,40 +694,18 @@
       const importInput =
         document.getElementById("importInput");
 
-      const LAYERS = [
+      const MODES = [
         {
-          id: "collision",
-          name: "碰撞層"
+          id: "collisionPath",
+          name: "碰撞 Path"
         },
         {
-          id: "foreground",
-          name: "前景層"
+          id: "foregroundPath",
+          name: "前景 Path"
         },
         {
           id: "objects",
-          name: "物件層"
-        }
-      ];
-
-      const COLLISION_TOOLS = [
-        {
-          id: 1,
-          name: "不可通行"
-        },
-        {
-          id: 0,
-          name: "可通行"
-        }
-      ];
-
-      const FOREGROUND_TOOLS = [
-        {
-          id: 1,
-          name: "前景遮擋"
-        },
-        {
-          id: 0,
-          name: "清除前景"
+          name: "物件放置"
         }
       ];
 
@@ -703,53 +736,26 @@
         }
       ];
 
-      let activeLayer = "collision";
-      let activeTool = 1;
-
-      let isDrawing = false;
+      let activeMode = "collisionPath";
+      let activeObjectTool = "playerSpawn";
 
       let mapData = loadMap();
 
       let editorBackgroundImage = null;
       let editorBackgroundReady = false;
 
-      function createLayer(
-        columns,
-        rows,
-        fillValue = 0
-      ) {
-        return Array.from(
-          { length: rows },
-          () => Array(columns).fill(fillValue)
-        );
-      }
+      const drawingState = {
+        active: false,
+        points: [],
+        previewPoint: null
+      };
 
       function createDefaultMap() {
-        const columns = 48;
-        const rows = 27;
-
-        const collision =
-          createLayer(columns, rows, 0);
-
-        const foreground =
-          createLayer(columns, rows, 0);
-
-        for (let x = 0; x < columns; x += 1) {
-          collision[0][x] = 1;
-          collision[rows - 1][x] = 1;
-        }
-
-        for (let y = 0; y < rows; y += 1) {
-          collision[y][0] = 1;
-          collision[y][columns - 1] = 1;
-        }
-
         return {
-          version: 3,
+          version: 4,
 
-          columns,
-          rows,
-          tileSize: TILE_SIZE,
+          width: 1920,
+          height: 1080,
 
           background: {
             assetId: "starting-area",
@@ -769,93 +775,86 @@
             ]
           },
 
-          layers: {
-            collision,
-            foreground
-          },
+          collisionPaths: [],
+
+          foregroundPaths: [],
 
           objects: [
             {
+              id: "player-spawn",
               type: "playerSpawn",
-              x: 5,
-              y: 13
+              x: 220,
+              y: 540
             },
             {
+              id: "enemy-1",
               type: "enemy",
-              x: 18,
-              y: 12
+              x: 720,
+              y: 480
             },
             {
+              id: "enemy-2",
               type: "enemy",
-              x: 28,
-              y: 16
+              x: 1120,
+              y: 650
             },
             {
+              id: "key-1",
               type: "key",
-              x: 34,
-              y: 10
+              x: 1430,
+              y: 410
             },
             {
+              id: "chest-1",
               type: "chest",
-              x: 40,
-              y: 18
+              x: 1580,
+              y: 760
             },
             {
+              id: "exit-1",
               type: "exit",
-              x: 44,
-              y: 13
+              x: 1760,
+              y: 540
             }
           ]
         };
       }
 
-      function normalizeLayer(
-        source,
-        columns,
-        rows
-      ) {
-        return Array.from(
-          { length: rows },
-          (_, y) =>
-            Array.from(
-              { length: columns },
-              (_, x) => source?.[y]?.[x] ?? 0
-            )
-        );
+      function normalizePoint(point) {
+        return {
+          x: Number(point?.x) || 0,
+          y: Number(point?.y) || 0
+        };
+      }
+
+      function normalizePath(path, index) {
+        return {
+          id:
+            String(path?.id || `path-${index}`),
+
+          type: "polygon",
+
+          points:
+            Array.isArray(path?.points)
+              ? path.points.map(normalizePoint)
+              : []
+        };
       }
 
       function normalizeMap(data) {
         if (
           !data ||
-          !Number.isInteger(data.columns) ||
-          !Number.isInteger(data.rows)
+          !Number.isFinite(Number(data.width)) ||
+          !Number.isFinite(Number(data.height))
         ) {
-          throw new Error("地圖格式錯誤。");
+          throw new Error("地圖尺寸格式錯誤。");
         }
 
-        data.tileSize = TILE_SIZE;
+        data.width =
+          Math.max(320, Number(data.width));
 
-        if (!data.layers) {
-          data.layers = {};
-        }
-
-        data.layers.collision =
-          normalizeLayer(
-            data.layers.collision,
-            data.columns,
-            data.rows
-          );
-
-        data.layers.foreground =
-          normalizeLayer(
-            data.layers.foreground,
-            data.columns,
-            data.rows
-          );
-
-        if (!Array.isArray(data.objects)) {
-          data.objects = [];
-        }
+        data.height =
+          Math.max(240, Number(data.height));
 
         if (!data.assets) {
           data.assets = {};
@@ -864,6 +863,46 @@
         if (!Array.isArray(data.assets.backgrounds)) {
           data.assets.backgrounds = [];
         }
+
+        if (!Array.isArray(data.collisionPaths)) {
+          data.collisionPaths = [];
+        }
+
+        if (!Array.isArray(data.foregroundPaths)) {
+          data.foregroundPaths = [];
+        }
+
+        if (!Array.isArray(data.objects)) {
+          data.objects = [];
+        }
+
+        data.collisionPaths =
+          data.collisionPaths.map(normalizePath);
+
+        data.foregroundPaths =
+          data.foregroundPaths.map(normalizePath);
+
+        data.objects =
+          data.objects.map(
+            (object, index) => ({
+              id:
+                String(
+                  object.id ||
+                  `${object.type || "object"}-${index}`
+                ),
+
+              type:
+                String(
+                  object.type || "unknown"
+                ),
+
+              x:
+                Number(object.x) || 0,
+
+              y:
+                Number(object.y) || 0
+            })
+          );
 
         return data;
       }
@@ -890,7 +929,9 @@
         }
       }
 
-      function markUnsaved(message = "尚未儲存") {
+      function markUnsaved(
+        message = "尚未儲存"
+      ) {
         saveStatus.textContent = message;
       }
 
@@ -906,95 +947,86 @@
       }
 
       function synchronizeCanvasSize() {
-        canvas.width =
-          mapData.columns * TILE_SIZE;
+        canvas.width = mapData.width;
+        canvas.height = mapData.height;
 
-        canvas.height =
-          mapData.rows * TILE_SIZE;
+        mapWidthInput.value =
+          String(mapData.width);
 
-        columnsInput.value =
-          String(mapData.columns);
-
-        rowsInput.value =
-          String(mapData.rows);
+        mapHeightInput.value =
+          String(mapData.height);
 
         updateJson();
         drawEditor();
       }
 
-      function getToolsForLayer() {
-        if (activeLayer === "collision") {
-          return COLLISION_TOOLS;
-        }
+      function renderModeButtons() {
+        modeButtons.innerHTML = "";
 
-        if (activeLayer === "foreground") {
-          return FOREGROUND_TOOLS;
-        }
-
-        return OBJECT_TOOLS;
-      }
-
-      function renderLayerButtons() {
-        layerButtons.innerHTML = "";
-
-        for (const layer of LAYERS) {
+        for (const mode of MODES) {
           const button =
             document.createElement("button");
 
           button.type = "button";
-          button.textContent = layer.name;
+          button.textContent = mode.name;
 
-          if (layer.id === activeLayer) {
+          if (mode.id === activeMode) {
             button.classList.add("active");
           }
 
           button.addEventListener(
             "click",
             () => {
-              activeLayer = layer.id;
+              cancelCurrentPath();
 
-              activeTool =
-                getToolsForLayer()[0].id;
+              activeMode = mode.id;
 
-              currentLayerText.textContent =
-                `目前圖層：${layer.name}`;
+              currentModeText.textContent =
+                `目前模式：${mode.name}`;
 
-              renderLayerButtons();
-              renderToolButtons();
+              renderModeButtons();
+              renderObjectButtons();
+              renderPathList();
               drawEditor();
             }
           );
 
-          layerButtons.appendChild(button);
+          modeButtons.appendChild(button);
         }
       }
 
-      function renderToolButtons() {
-        toolButtons.innerHTML = "";
+      function renderObjectButtons() {
+        objectButtons.innerHTML = "";
 
-        const tools =
-          getToolsForLayer();
-
-        for (const tool of tools) {
+        for (
+          const tool of OBJECT_TOOLS
+        ) {
           const button =
             document.createElement("button");
 
           button.type = "button";
           button.textContent = tool.name;
 
-          if (tool.id === activeTool) {
+          if (
+            activeMode === "objects" &&
+            tool.id === activeObjectTool
+          ) {
             button.classList.add("active");
           }
+
+          button.disabled =
+            activeMode !== "objects";
 
           button.addEventListener(
             "click",
             () => {
-              activeTool = tool.id;
-              renderToolButtons();
+              activeObjectTool = tool.id;
+
+              renderObjectButtons();
             }
           );
 
-          toolButtons.appendChild(button);
+          objectButtons.appendChild(button);
         }
       }
 
@@ -1013,11 +1045,15 @@
       }
 
       function createAssetId(name) {
-        const basicId = name
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-_]/g, "");
+        const basicId =
+          name
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(
+              /[^a-z0-9-_]/g,
+              ""
+            );
 
         return (
           basicId ||
@@ -1030,6 +1066,7 @@
           source.trim();
 
         assetPreviewImage.hidden = true;
+
         assetPreviewMessage.hidden = false;
 
         if (!finalSource) {
@@ -1049,13 +1086,15 @@
 
         assetPreviewImage.onerror = () => {
           assetPreviewImage.hidden = true;
+
           assetPreviewMessage.hidden = false;
 
           assetPreviewMessage.textContent =
             "素材載入失敗，請檢查路徑";
         };
 
-        assetPreviewImage.src = finalSource;
+        assetPreviewImage.src =
+          finalSource;
       }
 
       function addBackgroundAsset() {
@@ -1083,7 +1122,10 @@
           );
 
         if (duplicated) {
-          alert("素材庫中已有相同素材。");
+          alert(
+            "素材庫中已有相同素材。"
+          );
+
           return;
         }
 
@@ -1093,7 +1135,9 @@
           src
         };
 
-        mapData.assets.backgrounds.push(asset);
+        mapData.assets.backgrounds.push(
+          asset
+        );
 
         renderAssetLibrary();
 
@@ -1102,12 +1146,14 @@
 
         updateJson();
 
-        markUnsaved("素材已新增，尚未儲存");
+        markUnsaved(
+          "素材已新增，尚未儲存"
+        );
       }
 
-      function removeBackgroundAsset(assetId) {
-        ensureAssetLibrary();
-
+      function removeBackgroundAsset(
+        assetId
+      ) {
         const currentAssetId =
           mapData.background?.assetId;
 
@@ -1132,7 +1178,9 @@
       function renderAssetLibrary() {
         ensureAssetLibrary();
 
-        backgroundAssetSelect.innerHTML = "";
+        backgroundAssetSelect.innerHTML =
+          "";
+
         assetList.innerHTML = "";
 
         for (
@@ -1145,17 +1193,21 @@
           option.value = asset.id;
           option.textContent = asset.name;
 
-          backgroundAssetSelect.appendChild(option);
+          backgroundAssetSelect.appendChild(
+            option
+          );
 
           const item =
             document.createElement("div");
 
-          item.className = "asset-item";
+          item.className = "list-item";
 
           const name =
             document.createElement("div");
 
-          name.className = "asset-item-name";
+          name.className =
+            "list-item-name";
+
           name.textContent = asset.name;
           name.title = asset.src;
 
@@ -1200,7 +1252,10 @@
           );
 
         if (!asset) {
-          alert("找不到選擇的素材。");
+          alert(
+            "找不到選擇的素材。"
+          );
+
           return;
         }
 
@@ -1208,10 +1263,12 @@
           assetId: asset.id,
           name: asset.name,
           src: asset.src,
+
           opacity:
             Number(
               backgroundOpacityInput.value
             ),
+
           visible: true
         };
 
@@ -1265,61 +1322,250 @@
         image.src = source;
       }
 
-      function getCellFromPointer(event) {
-        const rectangle =
-          canvas.getBoundingClientRect();
-
-        const scaleX =
-          canvas.width / rectangle.width;
-
-        const scaleY =
-          canvas.height / rectangle.height;
-
-        return {
-          x: Math.floor(
-            (
-              event.clientX -
-              rectangle.left
-            ) *
-            scaleX /
-            TILE_SIZE
-          ),
-
-          y: Math.floor(
-            (
-              event.clientY -
-              rectangle.top
-            ) *
-            scaleY /
-            TILE_SIZE
-          )
-        };
-      }
-
-      function isInsideMap(x, y) {
-        return (
-          x >= 0 &&
-          y >= 0 &&
-          x < mapData.columns &&
-          y < mapData.rows
-        );
-      }
-
-      function placeObject(x, y) {
-        if (activeTool === "eraseObject") {
-          mapData.objects =
-            mapData.objects.filter(
-              (object) =>
-                !(
-                  object.x === x &&
-                  object.y === y
-                )
-            );
+      function syncMapSizeToBackground() {
+        if (
+          !editorBackgroundReady ||
+          !editorBackgroundImage
+        ) {
+          alert(
+            "背景圖片尚未載入。"
+          );
 
           return;
         }
 
-        if (activeTool === "playerSpawn") {
+        mapData.width =
+          editorBackgroundImage.naturalWidth;
+
+        mapData.height =
+          editorBackgroundImage.naturalHeight;
+
+        synchronizeCanvasSize();
+
+        markUnsaved(
+          "地圖尺寸已同步背景圖片"
+        );
+      }
+
+      function getWorldPointFromPointer(
+        event
+      ) {
+        const rectangle =
+          canvas.getBoundingClientRect();
+
+        const scaleX =
+          canvas.width /
+          rectangle.width;
+
+        const scaleY =
+          canvas.height /
+          rectangle.height;
+
+        return {
+          x:
+            Math.round(
+              (
+                event.clientX -
+                rectangle.left
+              ) *
+              scaleX
+            ),
+
+          y:
+            Math.round(
+              (
+                event.clientY -
+                rectangle.top
+              ) *
+              scaleY
+            )
+        };
+      }
+
+      function isInsideMap(point) {
+        return (
+          point.x >= 0 &&
+          point.y >= 0 &&
+          point.x <= mapData.width &&
+          point.y <= mapData.height
+        );
+      }
+
+      function addPathPoint(point) {
+        if (!isInsideMap(point)) {
+          return;
+        }
+
+        if (!drawingState.active) {
+          drawingState.active = true;
+          drawingState.points = [];
+        }
+
+        drawingState.points.push(point);
+        drawingState.previewPoint = point;
+
+        updatePathStatus();
+        drawEditor();
+      }
+
+      function updatePathPreview(point) {
+        if (!drawingState.active) {
+          return;
+        }
+
+        drawingState.previewPoint = point;
+
+        drawEditor();
+      }
+
+      function getCurrentPathCollection() {
+        if (
+          activeMode === "collisionPath"
+        ) {
+          return mapData.collisionPaths;
+        }
+
+        if (
+          activeMode === "foregroundPath"
+        ) {
+          return mapData.foregroundPaths;
+        }
+
+        return null;
+      }
+
+      function getCurrentPathPrefix() {
+        if (
+          activeMode === "collisionPath"
+        ) {
+          return "collision";
+        }
+
+        return "foreground";
+      }
+
+      function completeCurrentPath() {
+        if (!drawingState.active) {
+          return;
+        }
+
+        if (
+          drawingState.points.length < 3
+        ) {
+          alert(
+            "Path 至少需要三個錨點。"
+          );
+
+          return;
+        }
+
+        const collection =
+          getCurrentPathCollection();
+
+        if (!collection) {
+          return;
+        }
+
+        collection.push({
+          id:
+            `${getCurrentPathPrefix()}-${Date.now()}`,
+
+          type: "polygon",
+
+          points:
+            drawingState.points.map(
+              (point) => ({
+                x: Math.round(point.x),
+                y: Math.round(point.y)
+              })
+            )
+        });
+
+        drawingState.active = false;
+        drawingState.points = [];
+        drawingState.previewPoint = null;
+
+        updateJson();
+        updatePathStatus();
+        renderPathList();
+        drawEditor();
+
+        markUnsaved(
+          "Path 已建立，尚未儲存"
+        );
+      }
+
+      function undoLastPoint() {
+        if (!drawingState.active) {
+          return;
+        }
+
+        drawingState.points.pop();
+
+        if (
+          drawingState.points.length === 0
+        ) {
+          cancelCurrentPath();
+          return;
+        }
+
+        drawingState.previewPoint =
+          drawingState.points[
+            drawingState.points.length - 1
+          ];
+
+        updatePathStatus();
+        drawEditor();
+      }
+
+      function cancelCurrentPath() {
+        drawingState.active = false;
+        drawingState.points = [];
+        drawingState.previewPoint = null;
+
+        updatePathStatus();
+        drawEditor();
+      }
+
+      function updatePathStatus() {
+        if (!drawingState.active) {
+          pathStatus.textContent =
+            "尚未開始繪製 Path";
+
+          return;
+        }
+
+        pathStatus.textContent =
+          `目前錨點：${drawingState.points.length} 個。` +
+          "按 Enter 完成，右鍵取消。";
+      }
+
+      function placeObject(point) {
+        if (
+          activeObjectTool ===
+          "eraseObject"
+        ) {
+          const removeRadius = 24;
+
+          mapData.objects =
+            mapData.objects.filter(
+              (object) =>
+                Math.hypot(
+                  object.x - point.x,
+                  object.y - point.y
+                ) > removeRadius
+            );
+
+          updateJson();
+          drawEditor();
+
+          return;
+        }
+
+        if (
+          activeObjectTool ===
+          "playerSpawn"
+        ) {
           mapData.objects =
             mapData.objects.filter(
               (object) =>
@@ -1328,7 +1574,9 @@
             );
         }
 
-        if (activeTool === "exit") {
+        if (
+          activeObjectTool === "exit"
+        ) {
           mapData.objects =
             mapData.objects.filter(
               (object) =>
@@ -1336,120 +1584,147 @@
             );
         }
 
-        const existing =
-          mapData.objects.findIndex(
-            (object) =>
-              object.x === x &&
-              object.y === y &&
-              object.type === activeTool
-          );
-
-        if (existing >= 0) {
-          mapData.objects.splice(existing, 1);
-          return;
-        }
-
         mapData.objects.push({
-          type: activeTool,
-          x,
-          y
+          id:
+            `${activeObjectTool}-${Date.now()}`,
+
+          type: activeObjectTool,
+
+          x: point.x,
+          y: point.y
         });
-      }
-
-      function paintCell(event) {
-        const cell =
-          getCellFromPointer(event);
-
-        if (!isInsideMap(cell.x, cell.y)) {
-          return;
-        }
-
-        if (activeLayer === "objects") {
-          placeObject(cell.x, cell.y);
-        } else {
-          mapData.layers[activeLayer]
-            [cell.y][cell.x] = activeTool;
-        }
 
         updateJson();
         drawEditor();
       }
 
-      function resizeLayer(
-        source,
-        columns,
-        rows
+      function removePath(
+        collectionName,
+        pathId
       ) {
-        return Array.from(
-          { length: rows },
-          (_, y) =>
-            Array.from(
-              { length: columns },
-              (_, x) =>
-                source?.[y]?.[x] ?? 0
-            )
-        );
+        mapData[collectionName] =
+          mapData[collectionName].filter(
+            (path) =>
+              path.id !== pathId
+          );
+
+        updateJson();
+        renderPathList();
+        drawEditor();
+      }
+
+      function renderPathList() {
+        pathList.innerHTML = "";
+
+        const collections = [
+          {
+            name: "碰撞",
+            key: "collisionPaths"
+          },
+          {
+            name: "前景",
+            key: "foregroundPaths"
+          }
+        ];
+
+        for (
+          const collection of collections
+        ) {
+          for (
+            const path of
+            mapData[collection.key]
+          ) {
+            const item =
+              document.createElement("div");
+
+            item.className = "list-item";
+
+            const name =
+              document.createElement("div");
+
+            name.className =
+              "list-item-name";
+
+            name.textContent =
+              `${collection.name}｜` +
+              `${path.points.length} 點`;
+
+            name.title = path.id;
+
+            const deleteButton =
+              document.createElement("button");
+
+            deleteButton.type = "button";
+            deleteButton.textContent =
+              "刪除";
+
+            deleteButton.className =
+              "danger";
+
+            deleteButton.addEventListener(
+              "click",
+              () => {
+                removePath(
+                  collection.key,
+                  path.id
+                );
+              }
+            );
+
+            item.appendChild(name);
+            item.appendChild(deleteButton);
+
+            pathList.appendChild(item);
+          }
+        }
+
+        if (
+          mapData.collisionPaths.length === 0 &&
+          mapData.foregroundPaths.length === 0
+        ) {
+          const empty =
+            document.createElement("div");
+
+          empty.className =
+            "helper-text";
+
+          empty.textContent =
+            "尚未建立任何 Path。";
+
+          pathList.appendChild(empty);
+        }
       }
 
       function resizeMap() {
-        const columns = Math.max(
-          12,
-          Math.min(
-            100,
-            Number(columnsInput.value)
-          )
-        );
-
-        const rows = Math.max(
-          10,
-          Math.min(
-            80,
-            Number(rowsInput.value)
-          )
-        );
-
-        mapData.layers.collision =
-          resizeLayer(
-            mapData.layers.collision,
-            columns,
-            rows
+        const width =
+          Math.max(
+            320,
+            Math.min(
+              10000,
+              Number(mapWidthInput.value)
+            )
           );
 
-        mapData.layers.foreground =
-          resizeLayer(
-            mapData.layers.foreground,
-            columns,
-            rows
+        const height =
+          Math.max(
+            240,
+            Math.min(
+              10000,
+              Number(mapHeightInput.value)
+            )
           );
 
-        mapData.columns = columns;
-        mapData.rows = rows;
+        mapData.width = width;
+        mapData.height = height;
 
         mapData.objects =
           mapData.objects.filter(
             (object) =>
-              object.x < columns &&
-              object.y < rows
+              object.x <= width &&
+              object.y <= height
           );
 
         synchronizeCanvasSize();
-        loadEditorBackground();
-      }
-
-      function clearCurrentLayer() {
-        if (activeLayer === "objects") {
-          mapData.objects = [];
-        } else {
-          mapData.layers[activeLayer] =
-            createLayer(
-              mapData.columns,
-              mapData.rows,
-              0
-            );
-        }
-
-        updateJson();
-        drawEditor();
       }
 
       function drawBackground() {
@@ -1485,121 +1760,152 @@
         context.restore();
       }
 
-      function drawCollisionLayer() {
-        if (activeLayer !== "collision") {
+      function drawPolygon(
+        path,
+        fillStyle,
+        strokeStyle
+      ) {
+        if (path.points.length < 3) {
           return;
         }
 
+        context.save();
+
+        context.beginPath();
+
+        context.moveTo(
+          path.points[0].x,
+          path.points[0].y
+        );
+
         for (
-          let y = 0;
-          y < mapData.rows;
-          y += 1
+          let index = 1;
+          index < path.points.length;
+          index += 1
         ) {
-          for (
-            let x = 0;
-            x < mapData.columns;
-            x += 1
-          ) {
-            if (
-              mapData.layers.collision
-                [y][x] !== 1
-            ) {
-              continue;
-            }
+          context.lineTo(
+            path.points[index].x,
+            path.points[index].y
+          );
+        }
 
-            const screenX =
-              x * TILE_SIZE;
+        context.closePath();
 
-            const screenY =
-              y * TILE_SIZE;
+        context.fillStyle = fillStyle;
+        context.strokeStyle = strokeStyle;
+        context.lineWidth = 2;
 
-            context.fillStyle =
-              "rgba(220, 65, 65, 0.36)";
+        context.fill();
+        context.stroke();
 
-            context.fillRect(
-              screenX,
-              screenY,
-              TILE_SIZE,
-              TILE_SIZE
-            );
+        context.restore();
+      }
 
-            context.strokeStyle =
-              "rgba(255, 130, 130, 0.9)";
+      function drawSavedPaths() {
+        for (
+          const path of
+          mapData.collisionPaths
+        ) {
+          drawPolygon(
+            path,
+            "rgba(220, 65, 65, 0.30)",
+            "rgba(255, 125, 125, 0.95)"
+          );
+        }
 
-            context.beginPath();
-
-            context.moveTo(
-              screenX,
-              screenY
-            );
-
-            context.lineTo(
-              screenX + TILE_SIZE,
-              screenY + TILE_SIZE
-            );
-
-            context.moveTo(
-              screenX + TILE_SIZE,
-              screenY
-            );
-
-            context.lineTo(
-              screenX,
-              screenY + TILE_SIZE
-            );
-
-            context.stroke();
-          }
+        for (
+          const path of
+          mapData.foregroundPaths
+        ) {
+          drawPolygon(
+            path,
+            "rgba(44, 111, 59, 0.30)",
+            "rgba(123, 215, 139, 0.95)"
+          );
         }
       }
 
-      function drawForegroundLayer() {
-        for (
-          let y = 0;
-          y < mapData.rows;
-          y += 1
+      function drawCurrentPath() {
+        if (
+          !drawingState.active ||
+          drawingState.points.length === 0
         ) {
-          for (
-            let x = 0;
-            x < mapData.columns;
-            x += 1
-          ) {
-            if (
-              mapData.layers.foreground
-                [y][x] !== 1
-            ) {
-              continue;
-            }
-
-            context.fillStyle =
-              activeLayer === "foreground"
-                ? "rgba(45, 111, 58, 0.48)"
-                : "rgba(24, 54, 31, 0.20)";
-
-            context.fillRect(
-              x * TILE_SIZE,
-              y * TILE_SIZE,
-              TILE_SIZE,
-              TILE_SIZE
-            );
-          }
+          return;
         }
+
+        const points =
+          drawingState.points;
+
+        context.save();
+
+        context.beginPath();
+
+        context.moveTo(
+          points[0].x,
+          points[0].y
+        );
+
+        for (
+          let index = 1;
+          index < points.length;
+          index += 1
+        ) {
+          context.lineTo(
+            points[index].x,
+            points[index].y
+          );
+        }
+
+        if (drawingState.previewPoint) {
+          context.lineTo(
+            drawingState.previewPoint.x,
+            drawingState.previewPoint.y
+          );
+        }
+
+        context.strokeStyle =
+          activeMode === "collisionPath"
+            ? "#ffd080"
+            : "#91e8a0";
+
+        context.lineWidth = 2;
+        context.stroke();
+
+        for (const point of points) {
+          context.fillStyle = "#fff2b0";
+
+          context.beginPath();
+
+          context.arc(
+            point.x,
+            point.y,
+            6,
+            0,
+            Math.PI * 2
+          );
+
+          context.fill();
+
+          context.strokeStyle = "#40371a";
+          context.stroke();
+        }
+
+        context.restore();
       }
 
       function drawObject(object) {
-        const centerX =
-          object.x * TILE_SIZE +
-          TILE_SIZE / 2;
-
-        const centerY =
-          object.y * TILE_SIZE +
-          TILE_SIZE / 2;
+        const centerX = object.x;
+        const centerY = object.y;
 
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.font = "700 10px system-ui";
+        context.font =
+          "700 10px system-ui";
 
-        if (object.type === "playerSpawn") {
+        if (
+          object.type ===
+          "playerSpawn"
+        ) {
           context.fillStyle = "#d7b56d";
 
           context.beginPath();
@@ -1607,7 +1913,7 @@
           context.arc(
             centerX,
             centerY,
-            12,
+            13,
             0,
             Math.PI * 2
           );
@@ -1615,7 +1921,12 @@
           context.fill();
 
           context.fillStyle = "#1d231d";
-          context.fillText("P", centerX, centerY);
+
+          context.fillText(
+            "P",
+            centerX,
+            centerY
+          );
         }
 
         if (object.type === "enemy") {
@@ -1626,7 +1937,7 @@
           context.arc(
             centerX,
             centerY,
-            12,
+            13,
             0,
             Math.PI * 2
           );
@@ -1634,7 +1945,12 @@
           context.fill();
 
           context.fillStyle = "#ffffff";
-          context.fillText("E", centerX, centerY);
+
+          context.fillText(
+            "E",
+            centerX,
+            centerY
+          );
         }
 
         if (object.type === "key") {
@@ -1685,13 +2001,14 @@
           context.lineWidth = 3;
 
           context.strokeRect(
-            centerX - 13,
-            centerY - 13,
-            26,
-            26
+            centerX - 15,
+            centerY - 15,
+            30,
+            30
           );
 
           context.fillStyle = "#ffffff";
+
           context.fillText(
             "END",
             centerX,
@@ -1703,31 +2020,33 @@
       }
 
       function drawObjects() {
-        for (const object of mapData.objects) {
+        for (
+          const object of
+          mapData.objects
+        ) {
           drawObject(object);
         }
       }
 
       function drawGrid() {
+        const gridSize = 100;
+
         context.strokeStyle =
-          "rgba(255, 255, 255, 0.12)";
+          "rgba(255, 255, 255, 0.07)";
 
         context.lineWidth = 1;
 
         for (
           let x = 0;
-          x <= mapData.columns;
-          x += 1
+          x <= canvas.width;
+          x += gridSize
         ) {
           context.beginPath();
 
-          context.moveTo(
-            x * TILE_SIZE,
-            0
-          );
+          context.moveTo(x, 0);
 
           context.lineTo(
-            x * TILE_SIZE,
+            x,
             canvas.height
           );
 
@@ -1736,19 +2055,16 @@
 
         for (
           let y = 0;
-          y <= mapData.rows;
-          y += 1
+          y <= canvas.height;
+          y += gridSize
         ) {
           context.beginPath();
 
-          context.moveTo(
-            0,
-            y * TILE_SIZE
-          );
+          context.moveTo(0, y);
 
           context.lineTo(
             canvas.width,
-            y * TILE_SIZE
+            y
           );
 
           context.stroke();
@@ -1764,39 +2080,102 @@
         );
 
         drawBackground();
-        drawCollisionLayer();
+        drawSavedPaths();
         drawObjects();
-        drawForegroundLayer();
+        drawCurrentPath();
         drawGrid();
       }
 
       canvas.addEventListener(
         "mousedown",
         (event) => {
-          isDrawing = true;
-          paintCell(event);
+          if (event.button !== 0) {
+            return;
+          }
+
+          const point =
+            getWorldPointFromPointer(
+              event
+            );
+
+          if (activeMode === "objects") {
+            placeObject(point);
+            return;
+          }
+
+          addPathPoint(point);
         }
       );
 
       canvas.addEventListener(
         "mousemove",
         (event) => {
-          if (
-            !isDrawing ||
-            activeLayer === "objects"
-          ) {
+          if (!drawingState.active) {
             return;
           }
 
-          paintCell(event);
+          updatePathPreview(
+            getWorldPointFromPointer(
+              event
+            )
+          );
+        }
+      );
+
+      canvas.addEventListener(
+        "contextmenu",
+        (event) => {
+          event.preventDefault();
+
+          cancelCurrentPath();
         }
       );
 
       window.addEventListener(
-        "mouseup",
-        () => {
-          isDrawing = false;
+        "keydown",
+        (event) => {
+          if (
+            event.key === "Enter" &&
+            drawingState.active
+          ) {
+            event.preventDefault();
+
+            completeCurrentPath();
+          }
+
+          if (
+            event.key === "Escape" &&
+            drawingState.active
+          ) {
+            event.preventDefault();
+
+            cancelCurrentPath();
+          }
+
+          if (
+            event.key === "Backspace" &&
+            drawingState.active
+          ) {
+            event.preventDefault();
+
+            undoLastPoint();
+          }
         }
+      );
+
+      finishPathButton.addEventListener(
+        "click",
+        completeCurrentPath
+      );
+
+      undoPointButton.addEventListener(
+        "click",
+        undoLastPoint
+      );
+
+      cancelPathButton.addEventListener(
+        "click",
+        cancelCurrentPath
       );
 
       previewAssetButton.addEventListener(
@@ -1818,6 +2197,11 @@
         applySelectedBackground
       );
 
+      syncSizeButton.addEventListener(
+        "click",
+        syncMapSizeToBackground
+      );
+
       backgroundOpacityInput.addEventListener(
         "input",
         () => {
@@ -1827,7 +2211,9 @@
             );
 
           backgroundOpacityText.textContent =
-            `${Math.round(opacity * 100)}%`;
+            `${Math.round(
+              opacity * 100
+            )}%`;
 
           if (mapData.background) {
             mapData.background.opacity =
@@ -1837,6 +2223,11 @@
           updateJson();
           drawEditor();
         }
+      );
+
+      resizeButton.addEventListener(
+        "click",
+        resizeMap
       );
 
       saveButton.addEventListener(
@@ -1852,18 +2243,23 @@
         }
       );
 
-      clearLayerButton.addEventListener(
-        "click",
-        clearCurrentLayer
-      );
-
       resetDefaultButton.addEventListener(
         "click",
         () => {
           mapData = createDefaultMap();
 
-          activeLayer = "collision";
-          activeTool = 1;
+          activeMode =
+            "collisionPath";
+
+          activeObjectTool =
+            "playerSpawn";
+
+          cancelCurrentPath();
+
+          renderModeButtons();
+          renderObjectButtons();
+          renderAssetLibrary();
+          renderPathList();
 
           backgroundOpacityInput.value =
             String(
@@ -1873,20 +2269,13 @@
           backgroundOpacityText.textContent =
             "100%";
 
-          renderLayerButtons();
-          renderToolButtons();
-          renderAssetLibrary();
-
           synchronizeCanvasSize();
           loadEditorBackground();
 
-          markUnsaved("已還原預設地圖");
+          markUnsaved(
+            "已還原預設地圖"
+          );
         }
-      );
-
-      resizeButton.addEventListener(
-        "click",
-        resizeMap
       );
 
       applyJsonButton.addEventListener(
@@ -1899,13 +2288,18 @@
               )
             );
 
+            cancelCurrentPath();
+
             renderAssetLibrary();
+            renderPathList();
+
             synchronizeCanvasSize();
             loadEditorBackground();
 
             backgroundOpacityInput.value =
               String(
-                mapData.background?.opacity ?? 1
+                mapData.background?.opacity ??
+                1
               );
 
             backgroundOpacityText.textContent =
@@ -1952,8 +2346,9 @@
             document.createElement("a");
 
           anchor.href = url;
+
           anchor.download =
-            "mist-ruins-map-v3.json";
+            "mist-ruins-map-v4.json";
 
           anchor.click();
 
@@ -1979,13 +2374,18 @@
               JSON.parse(content)
             );
 
+            cancelCurrentPath();
+
             renderAssetLibrary();
+            renderPathList();
+
             synchronizeCanvasSize();
             loadEditorBackground();
 
             backgroundOpacityInput.value =
               String(
-                mapData.background?.opacity ?? 1
+                mapData.background?.opacity ??
+                1
               );
 
             backgroundOpacityText.textContent =
@@ -2009,9 +2409,10 @@
         }
       );
 
-      renderLayerButtons();
-      renderToolButtons();
+      renderModeButtons();
+      renderObjectButtons();
       renderAssetLibrary();
+      renderPathList();
 
       backgroundOpacityInput.value =
         String(
@@ -2028,6 +2429,7 @@
 
       synchronizeCanvasSize();
       loadEditorBackground();
+      updatePathStatus();
     })();
   </script>
 </body>
