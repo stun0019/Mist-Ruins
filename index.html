@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>迷霧遺跡 Demo</title>
+  <style>
+    :root {
+      --bg:#111712;
+      --panel:#1b241d;
+      --panel2:#222d25;
+      --text:#f3f1df;
+      --muted:#aeb9ad;
+      --accent:#d7b56d;
+      --danger:#d75f5f;
+      --ok:#70b979;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      background:
+        radial-gradient(circle at top,#263229 0,#121713 45%,#090d0a 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+      display:grid;
+      place-items:center;
+    }
+    .shell{
+      width:min(1100px,100%);
+      padding:18px;
+      display:grid;
+      grid-template-columns:1fr 280px;
+      gap:16px;
+    }
+    .game-wrap{
+      background:#090d0a;
+      border:1px solid #3b493d;
+      border-radius:16px;
+      padding:12px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+    canvas{
+      width:100%;
+      height:auto;
+      display:block;
+      image-rendering:pixelated;
+      border-radius:10px;
+      background:#213b25;
+    }
+    .panel{
+      background:rgba(27,36,29,.94);
+      border:1px solid #3b493d;
+      border-radius:16px;
+      padding:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.25);
+    }
+    h1{font-size:24px;margin:0 0 6px}
+    .subtitle{color:var(--muted);font-size:14px;margin-bottom:18px}
+    .stat{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      border-bottom:1px solid #354037;
+    }
+    .legend{margin-top:18px;display:grid;gap:8px;font-size:14px;color:var(--muted)}
+    .legend b{color:var(--text)}
+    .btns{display:grid;gap:10px;margin-top:20px}
+    button,a.button{
+      width:100%;
+      border:1px solid #5b6a5d;
+      background:#2a372d;
+      color:var(--text);
+      padding:11px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      text-align:center;
+      text-decoration:none;
+      font-weight:700;
+    }
+    button:hover,a.button:hover{background:#354538}
+    .notice{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+    @media (max-width:850px){
+      .shell{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="game-wrap">
+      <canvas id="game" width="768" height="576"></canvas>
+    </section>
+
+    <aside class="panel">
+      <h1>迷霧遺跡</h1>
+      <div class="subtitle">2D 俯視角探索原型</div>
+
+      <div class="stat"><span>生命</span><strong id="hp">5 / 5</strong></div>
+      <div class="stat"><span>鑰匙</span><strong id="keys">0</strong></div>
+      <div class="stat"><span>狀態</span><strong id="status">探索中</strong></div>
+
+      <div class="legend">
+        <div><b>WASD / 方向鍵</b>：移動</div>
+        <div><b>Space</b>：攻擊</div>
+        <div><b>E</b>：互動／開門</div>
+        <div><b>R</b>：重置位置</div>
+      </div>
+
+      <div class="btns">
+        <button id="reloadMap">重新讀取地圖</button>
+        <button id="resetProgress">重置進度</button>
+        <a class="button" href="scripteditor.html">開啟地圖編輯器</a>
+      </div>
+
+      <div class="notice">
+        目前使用幾何圖形作為暫時素材。之後可替換為 Sprite Sheet、Tileset、粒子特效與音效。
+      </div>
+    </aside>
+  </main>
+
+<script>
+(() => {
+  const TILE = 48;
+  const COLS = 16;
+  const ROWS = 12;
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  const hpEl = document.getElementById("hp");
+  const keysEl = document.getElementById("keys");
+  const statusEl = document.getElementById("status");
+
+  const defaultMap = {
+    version: 1,
+    cols: COLS,
+    rows: ROWS,
+    tileSize: TILE,
+    tiles: [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+      [1,0,2,2,2,0,0,0,2,2,2,0,0,0,0,1],
+      [1,0,2,0,0,0,0,0,0,0,2,0,0,4,0,1],
+      [1,0,2,0,1,1,1,0,0,0,2,0,0,0,0,1],
+      [1,0,0,0,1,3,1,0,0,0,0,0,2,2,0,1],
+      [1,0,0,0,1,0,1,0,0,0,0,0,2,0,0,1],
+      [1,0,2,0,1,0,1,0,0,0,2,0,2,0,0,1],
+      [1,0,2,0,1,0,0,0,2,0,2,0,0,0,0,1],
+      [1,0,2,0,1,1,1,1,2,0,2,2,2,0,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,5,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ],
+    objects: [
+      {type:"playerSpawn", x:1, y:1},
+      {type:"enemy", x:7, y:3},
+      {type:"enemy", x:11, y:8},
+      {type:"key", x:5, y:5},
+      {type:"chest", x:13, y:9}
+    ]
+  };
+
+  function loadMap() {
+    try {
+      const raw = localStorage.getItem("mistRuinsMap");
+      const parsed = raw ? JSON.parse(raw) : defaultMap;
+      if (!parsed.tiles || !parsed.cols || !parsed.rows) throw new Error("Invalid map");
+      return parsed;
+    } catch (err) {
+      console.warn("Map load failed, using default map.", err);
+      return structuredClone(defaultMap);
+    }
+  }
+
+  let map = loadMap();
+  let world = createWorld(map);
+
+  function createWorld(data) {
+    const spawn = data.objects?.find(o => o.type === "playerSpawn") || {x:1,y:1};
+    return {
+      player: {
+        x: spawn.x * TILE + TILE/2,
+        y: spawn.y * TILE + TILE/2,
+        r: 14,
+        speed: 185,
+        hp: 5,
+        maxHp: 5,
+        keys: 0,
+        attackTimer: 0,
+        invuln: 0,
+        dirX: 1,
+        dirY: 0
+      },
+      enemies: (data.objects || [])
+        .filter(o => o.type === "enemy")
+        .map((o,i) => ({id:i,x:o.x*TILE+TILE/2,y:o.y*TILE+TILE/2,r:14,hp:2,speed:58,dead:false,hit:0})),
+      pickups: (data.objects || [])
+        .filter(o => ["key","chest"].includes(o.type))
+        .map((o,i) => ({id:i,type:o.type,x:o.x*TILE+TILE/2,y:o.y*TILE+TILE/2,taken:false})),
+      openDoors: new Set(),
+      completed: false
+    };
+  }
+
+  const keys = {};
+  addEventListener("keydown", e => {
+    keys[e.key.toLowerCase()] = true;
+    if ([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase())) e.preventDefault();
+    if (e.key.toLowerCase() === "r") resetPlayer();
+  });
+  addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  document.getElementById("reloadMap").onclick = () => {
+    map = loadMap();
+    world = createWorld(map);
+  };
+
+  document.getElementById("resetProgress").onclick = () => {
+    world = createWorld(map);
+  };
+
+  function resetPlayer() {
+    const spawn = map.objects?.find(o => o.type === "playerSpawn") || {x:1,y:1};
+    world.player.x = spawn.x*TILE+TILE/2;
+    world.player.y = spawn.y*TILE+TILE/2;
+  }
+
+  function tileAtPixel(px, py) {
+    const tx = Math.floor(px / TILE);
+    const ty = Math.floor(py / TILE);
+    if (tx < 0 || ty < 0 || tx >= map.cols || ty >= map.rows) return 1;
+    return map.tiles[ty][tx];
+  }
+
+  function isBlocked(px, py, radius=13) {
+    const points = [
+      [px-radius,py-radius],[px+radius,py-radius],
+      [px-radius,py+radius],[px+radius,py+radius]
+    ];
+    return points.some(([x,y]) => {
+      const tx = Math.floor(x/TILE);
+      const ty = Math.floor(y/TILE);
+      if (tx<0||ty<0||tx>=map.cols||ty>=map.rows) return true;
+      const t = map.tiles[ty][tx];
+      if (t === 1 || t === 2) return true;
+      if (t === 4 && !world.openDoors.has(`${tx},${ty}`)) return true;
+      return false;
+    });
+  }
+
+  function tryMove(entity, dx, dy) {
+    const nx = entity.x + dx;
+    if (!isBlocked(nx, entity.y, entity.r)) entity.x = nx;
+    const ny = entity.y + dy;
+    if (!isBlocked(entity.x, ny, entity.r)) entity.y = ny;
+  }
+
+  function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+
+  function interact() {
+    const p = world.player;
+    const tx = Math.floor((p.x + p.dirX*30)/TILE);
+    const ty = Math.floor((p.y + p.dirY*30)/TILE);
+    if (tx<0||ty<0||tx>=map.cols||ty>=map.rows) return;
+    const t = map.tiles[ty][tx];
+    if (t === 4 && !world.openDoors.has(`${tx},${ty}`)) {
+      if (p.keys > 0) {
+        p.keys--;
+        world.openDoors.add(`${tx},${ty}`);
+        statusEl.textContent = "石門已開啟";
+      } else {
+        statusEl.textContent = "需要鑰匙";
+      }
+    }
+  }
+
+  let interactLatch = false;
+  let attackLatch = false;
+
+  function update(dt) {
+    const p = world.player;
+    if (world.completed) return;
+
+    let mx = 0, my = 0;
+    if (keys["w"] || keys["arrowup"]) my -= 1;
+    if (keys["s"] || keys["arrowdown"]) my += 1;
+    if (keys["a"] || keys["arrowleft"]) mx -= 1;
+    if (keys["d"] || keys["arrowright"]) mx += 1;
+    if (mx || my) {
+      const len = Math.hypot(mx,my);
+      mx/=len; my/=len;
+      p.dirX=mx; p.dirY=my;
+      tryMove(p,mx*p.speed*dt,my*p.speed*dt);
+    }
+
+    if ((keys["e"]) && !interactLatch) interact();
+    interactLatch = !!keys["e"];
+
+    if ((keys[" "]) && !attackLatch && p.attackTimer <= 0) {
+      p.attackTimer = .22;
+      for (const enemy of world.enemies) {
+        if (enemy.dead) continue;
+        const ax = p.x + p.dirX*34;
+        const ay = p.y + p.dirY*34;
+        if (Math.hypot(enemy.x-ax, enemy.y-ay) < 34) {
+          enemy.hp--;
+          enemy.hit = .15;
+          if (enemy.hp <= 0) enemy.dead = true;
+        }
+      }
+    }
+    attackLatch = !!keys[" "];
+
+    p.attackTimer = Math.max(0,p.attackTimer-dt);
+    p.invuln = Math.max(0,p.invuln-dt);
+
+    for (const enemy of world.enemies) {
+      if (enemy.dead) continue;
+      enemy.hit = Math.max(0,enemy.hit-dt);
+      const d = dist(enemy,p);
+      if (d < 220 && d > 28) {
+        const dx = (p.x-enemy.x)/d;
+        const dy = (p.y-enemy.y)/d;
+        tryMove(enemy,dx*enemy.speed*dt,dy*enemy.speed*dt);
+      }
+      if (d < 28 && p.invuln <= 0) {
+        p.hp--;
+        p.invuln = 1;
+        statusEl.textContent = "受到傷害";
+        if (p.hp <= 0) {
+          p.hp = p.maxHp;
+          p.keys = 0;
+          resetPlayer();
+          statusEl.textContent = "重新甦醒";
+        }
+      }
+    }
+
+    for (const item of world.pickups) {
+      if (item.taken) continue;
+      if (dist(item,p) < 28) {
+        item.taken = true;
+        if (item.type === "key") {
+          p.keys++;
+          statusEl.textContent = "取得遺跡鑰匙";
+        } else if (item.type === "chest") {
+          p.hp = p.maxHp;
+          statusEl.textContent = "寶箱：生命恢復";
+        }
+      }
+    }
+
+    const tx = Math.floor(p.x/TILE);
+    const ty = Math.floor(p.y/TILE);
+    if (map.tiles[ty]?.[tx] === 5) {
+      world.completed = true;
+      statusEl.textContent = "Demo 完成";
+    }
+
+    hpEl.textContent = `${p.hp} / ${p.maxHp}`;
+    keysEl.textContent = p.keys;
+  }
+
+  const palette = {
+    0:"#3f7747",
+    1:"#243027",
+    2:"#315c36",
+    3:"#2e6883",
+    4:"#9d7544",
+    5:"#b69a50"
+  };
+
+  function drawTile(x,y,t) {
+    ctx.fillStyle = palette[t] || "#3f7747";
+    ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+
+    if (t===0) {
+      ctx.fillStyle="rgba(255,255,255,.05)";
+      ctx.fillRect(x*TILE+8,y*TILE+12,3,3);
+      ctx.fillRect(x*TILE+31,y*TILE+28,2,2);
+    }
+    if (t===1) {
+      ctx.fillStyle="#18201a";
+      ctx.fillRect(x*TILE+6,y*TILE+6,TILE-12,TILE-12);
+    }
+    if (t===2) {
+      ctx.fillStyle="#24462a";
+      ctx.beginPath();
+      ctx.arc(x*TILE+TILE/2,y*TILE+TILE/2,17,0,Math.PI*2);
+      ctx.fill();
+    }
+    if (t===3) {
+      ctx.fillStyle="rgba(255,255,255,.16)";
+      ctx.fillRect(x*TILE+6,y*TILE+12,TILE-12,4);
+      ctx.fillRect(x*TILE+12,y*TILE+28,TILE-20,3);
+    }
+    if (t===4 && !world.openDoors.has(`${x},${y}`)) {
+      ctx.fillStyle="#6d4d2b";
+      ctx.fillRect(x*TILE+8,y*TILE+4,TILE-16,TILE-8);
+      ctx.fillStyle="#d7b56d";
+      ctx.fillRect(x*TILE+21,y*TILE+21,6,6);
+    }
+    if (t===5) {
+      ctx.strokeStyle="#f2d77c";
+      ctx.lineWidth=4;
+      ctx.strokeRect(x*TILE+10,y*TILE+10,TILE-20,TILE-20);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for (let y=0;y<map.rows;y++) {
+      for (let x=0;x<map.cols;x++) drawTile(x,y,map.tiles[y][x]);
+    }
+
+    for (const item of world.pickups) {
+      if (item.taken) continue;
+      if (item.type==="key") {
+        ctx.fillStyle="#f2d77c";
+        ctx.beginPath();
+        ctx.arc(item.x,item.y,8,0,Math.PI*2);
+        ctx.fill();
+        ctx.fillRect(item.x+5,item.y-2,16,4);
+      } else {
+        ctx.fillStyle="#855d35";
+        ctx.fillRect(item.x-14,item.y-10,28,20);
+        ctx.fillStyle="#d7b56d";
+        ctx.fillRect(item.x-2,item.y-3,4,8);
+      }
+    }
+
+    for (const enemy of world.enemies) {
+      if (enemy.dead) continue;
+      ctx.fillStyle = enemy.hit>0 ? "#ffffff" : "#a14f58";
+      ctx.beginPath();
+      ctx.arc(enemy.x,enemy.y,enemy.r,0,Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle="#2a1418";
+      ctx.fillRect(enemy.x-6,enemy.y-3,4,4);
+      ctx.fillRect(enemy.x+2,enemy.y-3,4,4);
+    }
+
+    const p = world.player;
+    ctx.save();
+    if (p.invuln>0 && Math.floor(p.invuln*12)%2===0) ctx.globalAlpha=.35;
+    ctx.fillStyle="#d7b56d";
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle="#1f2a21";
+    ctx.fillRect(p.x-7,p.y-5,4,4);
+    ctx.fillRect(p.x+3,p.y-5,4,4);
+    ctx.restore();
+
+    if (p.attackTimer>0) {
+      ctx.strokeStyle="#f4e3a0";
+      ctx.lineWidth=6;
+      ctx.beginPath();
+      const ang=Math.atan2(p.dirY,p.dirX);
+      ctx.arc(p.x,p.y,34,ang-.7,ang+.7);
+      ctx.stroke();
+    }
+
+    if (world.completed) {
+      ctx.fillStyle="rgba(0,0,0,.65)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="#f4e3a0";
+      ctx.textAlign="center";
+      ctx.font="700 36px system-ui";
+      ctx.fillText("遺跡探索完成",canvas.width/2,canvas.height/2-10);
+      ctx.font="18px system-ui";
+      ctx.fillStyle="#ffffff";
+      ctx.fillText("可返回編輯器繼續擴充地圖",canvas.width/2,canvas.height/2+32);
+    }
+  }
+
+  let last=performance.now();
+  function loop(now) {
+    const dt=Math.min(.033,(now-last)/1000);
+    last=now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
