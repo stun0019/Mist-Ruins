@@ -2,25 +2,15 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
+  <meta name="theme-color" content="#cfe8ee">
 
-  <meta
-    name="theme-color"
-    content="#cfe8ee"
-  >
+  <title>櫻庭競技場｜11 vs 11 V0.5</title>
 
-  <title>
-    櫻庭競技場｜11 vs 11 Demo
-  </title>
-
-  <link
-    rel="stylesheet"
-    href="./styles.css"
-  >
+  <link rel="stylesheet" href="./styles.css">
 
   <script type="importmap">
   {
@@ -35,26 +25,21 @@
 <body>
   <div id="game-container"></div>
 
-  <div
-    id="start-screen"
-    class="screen"
-  >
+  <div id="start-screen" class="screen">
     <div class="start-panel">
       <p class="eyebrow">
-        SAKURA ARENA · MATCH V0.4
+        SAKURA ARENA · GAMEPLAY V0.5
       </p>
 
-      <h1>
-        櫻庭競技場
-      </h1>
+      <h1>櫻庭競技場</h1>
 
       <p class="scene-name">
-        11 VS 11 自動攻防測試
+        11 VS 11 · CORE FOOTBALL AI
       </p>
 
       <p class="description">
-        紅藍雙方將依照陣型自行防守、壓迫、傳球與射門。
-        目前為 Three.js 行為測試版本，角色使用低多邊形暫代模型。
+        V0.5 強化持球、帶球、傳球、射門、搶球、守門員與整體攻守跑位。
+        目前仍由 22 名 AI 自動進行比賽，角色模型為暫代低多邊形版本。
       </p>
 
       <button
@@ -65,21 +50,10 @@
       </button>
 
       <div class="controls">
-        <span>
-          AI 自動比賽
-        </span>
-
-        <span>
-          鏡頭自動跟隨
-        </span>
-
-        <span>
-          雙指／滾輪縮放
-        </span>
-
-        <span>
-          雙擊重置鏡頭
-        </span>
+        <span>AI 自動攻防</span>
+        <span>固定角度跟隨</span>
+        <span>雙指／滾輪縮放</span>
+        <span>雙擊重置鏡頭</span>
       </div>
     </div>
   </div>
@@ -91,31 +65,17 @@
     <div class="match-board">
       <div class="team team-red">
         <span class="team-dot"></span>
-
-        <strong>
-          赤櫻
-        </strong>
+        <strong>赤櫻</strong>
       </div>
 
       <div class="score">
-        <strong id="red-score">
-          0
-        </strong>
-
-        <span>
-          —
-        </span>
-
-        <strong id="blue-score">
-          0
-        </strong>
+        <strong id="red-score">0</strong>
+        <span>—</span>
+        <strong id="blue-score">0</strong>
       </div>
 
       <div class="team team-blue">
-        <strong>
-          蒼月
-        </strong>
-
+        <strong>蒼月</strong>
         <span class="team-dot"></span>
       </div>
 
@@ -124,6 +84,13 @@
         class="match-clock"
       >
         00:00
+      </div>
+
+      <div
+        id="possession-status"
+        class="possession-status"
+      >
+        開球準備
       </div>
     </div>
 
@@ -136,7 +103,7 @@
     </div>
 
     <div class="hint">
-      固定角度跟隨足球 · 雙指／滾輪縮放 · 雙擊重置
+      固定角度平滑跟隨 · 雙指／滾輪縮放 · 雙擊重置
     </div>
   </div>
 
