@@ -1,1 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
+  <title>燼落庭院 | Three.js Scene Demo</title>
+
+  <link rel="stylesheet" href="./styles.css">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <div id="game-container"></div>
+
+  <div id="start-screen" class="screen">
+    <div class="start-panel">
+      <p class="eyebrow">ASHBOUND · SCENE V0.1</p>
+
+      <h1>燼落庭院</h1>
+
+      <p class="description">
+        一座被遺忘的祭壇庭院。灰燼仍在空中飄散，
+        而封閉的石門後方，似乎仍有微弱的火光。
+      </p>
+
+      <button id="start-button" type="button">
+        進入場景
+      </button>
+
+      <div class="controls">
+        <span>WASD 移動</span>
+        <span>滑鼠轉向</span>
+        <span>Shift 加速</span>
+        <span>Esc 解除視角</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause-screen" class="screen hidden">
+    <div class="pause-panel">
+      <p class="eyebrow">PAUSED</p>
+      <h2>探索暫停</h2>
+      <p>點擊畫面繼續探索</p>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="location">
+      <span class="location-label">目前區域</span>
+      <strong>燼落庭院</strong>
+    </div>
+
+    <div class="crosshair" aria-hidden="true"></div>
+
+    <div class="hint">
+      WASD 移動 · Shift 加速 · Esc 暫停
+    </div>
+  </div>
+
+  <noscript>
+    此遊戲需要啟用 JavaScript。
+  </noscript>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
