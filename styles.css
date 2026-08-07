@@ -316,10 +316,11 @@ h2 {
   display: none !important;
 }
 
+/* 手機與窄螢幕直向版 */
 @media (max-width: 640px) {
   .start-panel,
   .pause-panel {
-    width: 100%;
+    width: min(520px, 100%);
 
     padding: 28px 22px;
   }
@@ -349,67 +350,87 @@ h2 {
   }
 }
 
+/* 觸控裝置 */
 @media (pointer: coarse) {
-  .start-panel,
-  .pause-panel {
-    width: min(520px, 100%);
-  }
-
   .crosshair {
     display: none;
   }
 }
 
+/* 手機橫向版 */
 @media (max-height: 500px) and (orientation: landscape) {
   .screen {
-    place-items: start center;
+    place-items: center;
+
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(18px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
   }
 
   .start-panel,
   .pause-panel {
-    width: min(760px, 100%);
-    max-height: none;
+    width: min(
+      620px,
+      calc(100vw - 72px),
+      calc(100dvh * 1.55)
+    );
 
-    padding: 16px 24px;
+    max-height: calc(100dvh - 20px);
+
+    padding:
+      clamp(14px, 3.5vh, 22px)
+      clamp(24px, 5vw, 40px);
+
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .eyebrow {
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 
-    font-size: 10px;
+    font-size: clamp(9px, 2.2vh, 11px);
   }
 
   h1 {
-    font-size: clamp(30px, 10vh, 44px);
+    font-size: clamp(28px, 9vh, 42px);
   }
 
   h2 {
-    font-size: clamp(26px, 9vh, 36px);
+    font-size: clamp(25px, 8vh, 34px);
   }
 
   .description {
-    max-width: 620px;
+    max-width: 500px;
 
-    margin: 10px auto 14px;
+    margin:
+      clamp(8px, 2vh, 12px)
+      auto
+      clamp(10px, 2.5vh, 16px);
 
-    font-size: 13px;
-    line-height: 1.55;
+    font-size: clamp(11px, 2.8vh, 13px);
+    line-height: 1.5;
   }
 
   #start-button {
-    min-width: 160px;
+    min-width: 170px;
 
-    padding: 10px 24px;
+    padding:
+      clamp(9px, 2.5vh, 12px)
+      28px;
   }
 
   .controls {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
 
-    margin-top: 12px;
+    margin-top: clamp(9px, 2.5vh, 14px);
 
-    gap: 6px 16px;
+    gap: 5px 14px;
 
-    font-size: 11px;
+    font-size: clamp(9px, 2.2vh, 11px);
   }
 
   .location {
