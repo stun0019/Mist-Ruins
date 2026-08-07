@@ -2,14 +2,23 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
 
-  <title>燼落庭院 | Three.js Scene Demo</title>
+  <meta
+    name="theme-color"
+    content="#05040d"
+  >
 
-  <link rel="stylesheet" href="./styles.css">
+  <title>影界覺醒｜影王試煉大殿</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
 
   <script type="importmap">
   {
@@ -24,45 +33,83 @@
 <body>
   <div id="game-container"></div>
 
-  <div id="start-screen" class="screen">
+  <div
+    id="start-screen"
+    class="screen"
+  >
     <div class="start-panel">
-      <p class="eyebrow">ASHBOUND · SCENE V0.1</p>
-
-      <h1>燼落庭院</h1>
-
-      <p class="description">
-        一座被遺忘的祭壇庭院。灰燼仍在空中飄散，
-        而封閉的石門後方，似乎仍有微弱的火光。
+      <p class="eyebrow">
+        SHADOW ASCENT · SCENE V0.2
       </p>
 
-      <button id="start-button" type="button">
-        進入場景
+      <h1>影界覺醒</h1>
+
+      <p class="scene-name">
+        影王試煉大殿
+      </p>
+
+      <p class="description">
+        沉睡於地底的試煉之門再次甦醒。
+        紫色魔力沿著大殿蔓延，而王座後方的影界裂隙，
+        正在等待新的覺醒者。
+      </p>
+
+      <button
+        id="start-button"
+        type="button"
+      >
+        進入試煉
       </button>
 
       <div class="controls">
         <span>WASD 移動</span>
         <span>滑鼠轉向</span>
         <span>Shift 加速</span>
-        <span>Esc 解除視角</span>
+        <span>Esc 暫停</span>
       </div>
     </div>
   </div>
 
-  <div id="pause-screen" class="screen hidden">
+  <div
+    id="pause-screen"
+    class="screen hidden"
+  >
     <div class="pause-panel">
-      <p class="eyebrow">PAUSED</p>
-      <h2>探索暫停</h2>
-      <p>點擊畫面繼續探索</p>
+      <p class="eyebrow">
+        TRIAL PAUSED
+      </p>
+
+      <h2>試煉暫停</h2>
+
+      <p>
+        點擊畫面繼續探索
+      </p>
     </div>
   </div>
 
-  <div id="hud" class="hidden">
+  <div
+    id="hud"
+    class="hidden"
+  >
     <div class="location">
-      <span class="location-label">目前區域</span>
-      <strong>燼落庭院</strong>
+      <span class="location-label">
+        CURRENT AREA
+      </span>
+
+      <strong>
+        影王試煉大殿
+      </strong>
     </div>
 
-    <div class="crosshair" aria-hidden="true"></div>
+    <div
+      class="crosshair"
+      aria-hidden="true"
+    ></div>
+
+    <div class="trial-status">
+      <span class="trial-status-dot"></span>
+      影界能量正在甦醒
+    </div>
 
     <div class="hint">
       WASD 移動 · Shift 加速 · Esc 暫停
@@ -73,6 +120,9 @@
     此遊戲需要啟用 JavaScript。
   </noscript>
 
-  <script type="module" src="./src/main.js"></script>
+  <script
+    type="module"
+    src="./src/main.js"
+  ></script>
 </body>
 </html>
