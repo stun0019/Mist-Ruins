@@ -2,23 +2,15 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
+  <meta name="theme-color" content="#cfe8ee">
 
-  <meta
-    name="theme-color"
-    content="#05040d"
-  >
+  <title>櫻庭競技場｜Three.js Scene Demo</title>
 
-  <title>影界覺醒｜影王試煉大殿</title>
-
-  <link
-    rel="stylesheet"
-    href="./styles.css"
-  >
+  <link rel="stylesheet" href="./styles.css">
 
   <script type="importmap">
   {
@@ -33,96 +25,46 @@
 <body>
   <div id="game-container"></div>
 
-  <div
-    id="start-screen"
-    class="screen"
-  >
+  <div id="start-screen" class="screen">
     <div class="start-panel">
-      <p class="eyebrow">
-        SHADOW ASCENT · SCENE V0.2
-      </p>
-
-      <h1>影界覺醒</h1>
-
-      <p class="scene-name">
-        影王試煉大殿
-      </p>
+      <p class="eyebrow">SAKURA ARENA · SCENE V0.3</p>
+      <h1>櫻庭競技場</h1>
+      <p class="scene-name">日式祭典競技場場景測試</p>
 
       <p class="description">
-        沉睡於地底的試煉之門再次甦醒。
-        紫色魔力沿著大殿蔓延，而王座後方的影界裂隙，
-        正在等待新的覺醒者。
+        以影片中的斜俯視競技場為參考，先建立條紋草地、紅色球門、
+        觀眾席、鳥居、櫻花樹、燈籠與場外祭典裝飾。
       </p>
 
-      <button
-        id="start-button"
-        type="button"
-      >
-        進入試煉
-      </button>
+      <button id="start-button" type="button">查看場景</button>
 
       <div class="controls">
-        <span>WASD 移動</span>
-        <span>滑鼠轉向</span>
-        <span>Shift 加速</span>
-        <span>Esc 暫停</span>
+        <span>拖曳旋轉</span>
+        <span>滾輪縮放</span>
+        <span>雙擊重置</span>
+        <span>目前無角色</span>
       </div>
     </div>
   </div>
 
-  <div
-    id="pause-screen"
-    class="screen hidden"
-  >
-    <div class="pause-panel">
-      <p class="eyebrow">
-        TRIAL PAUSED
-      </p>
-
-      <h2>試煉暫停</h2>
-
-      <p>
-        點擊畫面繼續探索
-      </p>
-    </div>
-  </div>
-
-  <div
-    id="hud"
-    class="hidden"
-  >
+  <div id="hud" class="hidden">
     <div class="location">
-      <span class="location-label">
-        CURRENT AREA
-      </span>
-
-      <strong>
-        影王試煉大殿
-      </strong>
+      <span class="location-label">CURRENT AREA</span>
+      <strong>櫻庭競技場</strong>
     </div>
 
-    <div
-      class="crosshair"
-      aria-hidden="true"
-    ></div>
-
-    <div class="trial-status">
-      <span class="trial-status-dot"></span>
-      影界能量正在甦醒
+    <div class="scene-status">
+      <span class="scene-status-dot"></span>
+      場景展示模式
     </div>
 
     <div class="hint">
-      WASD 移動 · Shift 加速 · Esc 暫停
+      拖曳旋轉 · 滾輪縮放 · 雙擊重置
     </div>
   </div>
 
-  <noscript>
-    此遊戲需要啟用 JavaScript。
-  </noscript>
+  <noscript>此場景需要啟用 JavaScript。</noscript>
 
-  <script
-    type="module"
-    src="./src/main.js"
-  ></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>
