@@ -1,24 +1,49 @@
 import * as THREE from "three";
 
+export const FIELD = {
+  halfWidth: 32,
+  halfDepth: 20,
+
+  playableHalfWidth:
+    30.5,
+
+  playableHalfDepth:
+    18.8,
+
+  goalX: 32,
+
+  goalHalfWidth:
+    4.2
+};
+
 const COLORS = {
   sky: 0xcfe8ee,
+
   plaza: 0xe7dfcf,
   plazaDark: 0xcfc4b1,
+
   grassA: 0x49b85a,
   grassB: 0x3da950,
   grassEdge: 0x2d873d,
+
   line: 0xf4f1df,
+
   red: 0xc94b3f,
   redDark: 0x8f2f2b,
+
+  blue: 0x4f73c9,
+
   wood: 0x7a4a32,
   woodDark: 0x4b2d22,
+
   cream: 0xf4e6c8,
   stone: 0xa9a196,
+
   cherry: 0xf2a8bc,
   cherryLight: 0xffc9d5,
+
   dark: 0x2b2a30,
   gold: 0xe8bf55,
-  blue: 0x4f73c9,
   white: 0xffffff
 };
 
@@ -32,22 +57,37 @@ export function createWorld(
         options.isMobile
       ),
 
-    ball: null,
+    ball:
+      null,
 
     ballVelocity:
       new THREE.Vector3(),
 
     ballState: {
-      lastTouch: null,
-      lockTimer: 0
+      owner:
+        null,
+
+      lastTouch:
+        null,
+
+      lockTimer:
+        0,
+
+      possessionAge:
+        0
     },
 
-    petals: null,
-    petalPositions: null,
-    petalSpeeds: [],
+    petals:
+      null,
 
-    flags: [],
-    lanternMaterials: []
+    petalPositions:
+      null,
+
+    petalSpeeds:
+      [],
+
+    lanternMaterials:
+      []
   };
 
   scene.background =
@@ -69,20 +109,452 @@ export function createWorld(
     world
   );
 
-  createBase(scene);
-  createPitch(scene);
-  createFieldMarkings(scene);
-  createGoals(scene);
-  createBall(scene, world);
-  createSidelineDetails(scene);
-  createGrandstand(scene);
-  createTorii(scene);
-  createFestivalDecor(scene, world);
-  createCherryGarden(scene);
-  createBoundary(scene);
-  createPetals(scene, world);
+  createBase(
+    scene
+  );
+
+  createPitch(
+    scene
+  );
+
+  createFieldMarkings(
+    scene
+  );
+
+  createGoals(
+    scene
+  );
+
+  createBall(
+    scene,
+    world
+  );
+
+  createSidelineDetails(
+    scene
+  );
+
+  createGrandstand(
+    scene
+  );
+
+  createTorii(
+    scene
+  );
+
+  createFestivalDecor(
+    scene,
+    world
+  );
+
+  createCherryGarden(
+    scene
+  );
+
+  createBoundary(
+    scene
+  );
+
+  createPetals(
+    scene,
+    world
+  );
 
   return world;
+}
+
+export function resetBall(
+  world
+) {
+  world.ball.position.set(
+    0,
+    0.95,
+    0
+  );
+
+  world.ballVelocity.set(
+    0,
+    0,
+    0
+  );
+
+  world.ballState.owner =
+    null;
+
+  world.ballState.lastTouch =
+    null;
+
+  world.ballState.lockTimer =
+    0.35;
+
+  world.ballState.possessionAge =
+    0;
+}
+
+export function giveBallToPlayer(
+  world,
+  player
+) {
+  if (
+    !player
+  ) {
+    return;
+  }
+
+  world.ballState.owner =
+    player;
+
+  world.ballState.lastTouch =
+    player.team;
+
+  world.ballState.lockTimer =
+    0.12;
+
+  world.ballState.possessionAge =
+    0;
+
+  world.ballVelocity.set(
+    0,
+    0,
+    0
+  );
+
+  snapBallToOwner(
+    world
+  );
+}
+
+export function releaseBall(
+  world,
+  player,
+  target,
+  speed,
+  lift = 0.6
+) {
+  const direction =
+    target
+      .clone()
+      .sub(
+        world.ball.position
+      );
+
+  direction.y =
+    0;
+
+  if (
+    direction.lengthSq() <
+    0.001
+  ) {
+    return false;
+  }
+
+  direction.normalize();
+
+  world.ballState.owner =
+    null;
+
+  world.ballState.lastTouch =
+    player?.team ??
+    world.ballState.lastTouch;
+
+  world.ballState.lockTimer =
+    0.18;
+
+  world.ballState.possessionAge =
+    0;
+
+  world.ballVelocity.copy(
+    direction.multiplyScalar(
+      speed
+    )
+  );
+
+  world.ballVelocity.y =
+    lift;
+
+  return true;
+}
+
+export function tryClaimBall(
+  world,
+  player,
+  radius = 1.2
+) {
+  if (
+    world.ballState.owner ||
+    world.ballState.lockTimer >
+      0
+  ) {
+    return false;
+  }
+
+  const dx =
+    player.position.x -
+    world.ball.position.x;
+
+  const dz =
+    player.position.z -
+    world.ball.position.z;
+
+  const distanceSq =
+    dx * dx +
+    dz * dz;
+
+  if (
+    distanceSq >
+    radius * radius
+  ) {
+    return false;
+  }
+
+  giveBallToPlayer(
+    world,
+    player
+  );
+
+  return true;
+}
+
+export function updateWorld(
+  world,
+  deltaTime,
+  elapsedTime,
+  simulateBall = true
+) {
+  let goal =
+    null;
+
+  if (
+    simulateBall
+  ) {
+    goal =
+      updateBall(
+        world,
+        deltaTime
+      );
+  }
+
+  updatePetals(
+    world,
+    deltaTime,
+    elapsedTime
+  );
+
+  updateLanterns(
+    world,
+    elapsedTime
+  );
+
+  return goal;
+}
+
+function updateBall(
+  world,
+  deltaTime
+) {
+  world.ballState.lockTimer =
+    Math.max(
+      0,
+      world.ballState.lockTimer -
+        deltaTime
+    );
+
+  if (
+    world.ballState.owner
+  ) {
+    world.ballState.possessionAge +=
+      deltaTime;
+
+    snapBallToOwner(
+      world
+    );
+
+    return null;
+  }
+
+  const ball =
+    world.ball;
+
+  world.ballVelocity.y -=
+    12 *
+    deltaTime;
+
+  ball.position.addScaledVector(
+    world.ballVelocity,
+    deltaTime
+  );
+
+  if (
+    ball.position.y <
+    0.95
+  ) {
+    ball.position.y =
+      0.95;
+
+    world.ballVelocity.y *=
+      -0.22;
+
+    if (
+      Math.abs(
+        world.ballVelocity.y
+      ) <
+      0.22
+    ) {
+      world.ballVelocity.y =
+        0;
+    }
+  }
+
+  const groundFriction =
+    Math.exp(
+      -1.35 *
+      deltaTime
+    );
+
+  world.ballVelocity.x *=
+    groundFriction;
+
+  world.ballVelocity.z *=
+    groundFriction;
+
+  const insideGoal =
+    Math.abs(
+      ball.position.z
+    ) <
+    FIELD.goalHalfWidth;
+
+  if (
+    ball.position.x >
+      FIELD.goalX +
+        0.35 &&
+    insideGoal
+  ) {
+    return "red";
+  }
+
+  if (
+    ball.position.x <
+      -FIELD.goalX -
+        0.35 &&
+    insideGoal
+  ) {
+    return "blue";
+  }
+
+  if (
+    ball.position.z >
+    FIELD.playableHalfDepth
+  ) {
+    ball.position.z =
+      FIELD.playableHalfDepth;
+
+    world.ballVelocity.z *=
+      -0.55;
+  }
+
+  if (
+    ball.position.z <
+    -FIELD.playableHalfDepth
+  ) {
+    ball.position.z =
+      -FIELD.playableHalfDepth;
+
+    world.ballVelocity.z *=
+      -0.55;
+  }
+
+  if (
+    ball.position.x >
+      FIELD.playableHalfWidth &&
+    !insideGoal
+  ) {
+    ball.position.x =
+      FIELD.playableHalfWidth;
+
+    world.ballVelocity.x *=
+      -0.55;
+  }
+
+  if (
+    ball.position.x <
+      -FIELD.playableHalfWidth &&
+    !insideGoal
+  ) {
+    ball.position.x =
+      -FIELD.playableHalfWidth;
+
+    world.ballVelocity.x *=
+      -0.55;
+  }
+
+  ball.rotation.x +=
+    world.ballVelocity.z *
+    deltaTime *
+    0.75;
+
+  ball.rotation.z -=
+    world.ballVelocity.x *
+    deltaTime *
+    0.75;
+
+  return null;
+}
+
+function snapBallToOwner(
+  world
+) {
+  const owner =
+    world.ballState.owner;
+
+  if (
+    !owner
+  ) {
+    return;
+  }
+
+  const forward =
+    owner.forward?.lengthSq() >
+      0.001
+      ? owner.forward
+      : new THREE.Vector3(
+          owner.team === "red"
+            ? 1
+            : -1,
+          0,
+          0
+        );
+
+  const desired =
+    owner.position
+      .clone()
+      .addScaledVector(
+        forward,
+        owner.role === "GK"
+          ? 0.75
+          : 0.95
+      );
+
+  desired.y =
+    0.95;
+
+  world.ball.position.lerp(
+    desired,
+    0.62
+  );
+
+  world.ballVelocity.set(
+    0,
+    0,
+    0
+  );
+
+  world.ball.rotation.z -=
+    owner.velocity.x *
+    0.015;
+
+  world.ball.rotation.x +=
+    owner.velocity.z *
+    0.015;
 }
 
 function createLighting(
@@ -112,7 +584,8 @@ function createLighting(
     38
   );
 
-  sun.castShadow = true;
+  sun.castShadow =
+    true;
 
   const shadowSize =
     world.isMobile
@@ -124,20 +597,51 @@ function createLighting(
     shadowSize
   );
 
-  sun.shadow.camera.left = -68;
-  sun.shadow.camera.right = 68;
-  sun.shadow.camera.top = 58;
-  sun.shadow.camera.bottom = -58;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 180;
-  sun.shadow.bias = -0.00035;
+  sun.shadow.camera.left =
+    -68;
+
+  sun.shadow.camera.right =
+    68;
+
+  sun.shadow.camera.top =
+    58;
+
+  sun.shadow.camera.bottom =
+    -58;
+
+  sun.shadow.camera.near =
+    1;
+
+  sun.shadow.camera.far =
+    180;
+
+  sun.shadow.bias =
+    -0.00035;
 
   scene.add(
     sun
   );
+
+  const fill =
+    new THREE.DirectionalLight(
+      0xb8d9f0,
+      0.55
+    );
+
+  fill.position.set(
+    42,
+    28,
+    -36
+  );
+
+  scene.add(
+    fill
+  );
 }
 
-function createBase(scene) {
+function createBase(
+  scene
+) {
   const base =
     new THREE.Mesh(
       new THREE.BoxGeometry(
@@ -146,13 +650,19 @@ function createBase(scene) {
         98
       ),
       new THREE.MeshStandardMaterial({
-        color: COLORS.plaza,
-        roughness: 0.9
+        color:
+          COLORS.plaza,
+
+        roughness:
+          0.9
       })
     );
 
-  base.position.y = -0.8;
-  base.receiveShadow = true;
+  base.position.y =
+    -0.8;
+
+  base.receiveShadow =
+    true;
 
   scene.add(
     base
@@ -166,23 +676,36 @@ function createBase(scene) {
         102
       ),
       new THREE.MeshStandardMaterial({
-        color: COLORS.plazaDark,
-        roughness: 0.96
+        color:
+          COLORS.plazaDark,
+
+        roughness:
+          0.96
       })
     );
 
-  lowerBase.position.y = -1.75;
-  lowerBase.receiveShadow = true;
+  lowerBase.position.y =
+    -1.75;
+
+  lowerBase.receiveShadow =
+    true;
 
   scene.add(
     lowerBase
   );
 }
 
-function createPitch(scene) {
-  const fieldWidth = 64;
-  const fieldDepth = 40;
-  const stripeCount = 8;
+function createPitch(
+  scene
+) {
+  const fieldWidth =
+    64;
+
+  const fieldDepth =
+    40;
+
+  const stripeCount =
+    8;
 
   const edge =
     new THREE.Mesh(
@@ -192,13 +715,19 @@ function createPitch(scene) {
         fieldDepth + 2.2
       ),
       new THREE.MeshStandardMaterial({
-        color: COLORS.grassEdge,
-        roughness: 0.96
+        color:
+          COLORS.grassEdge,
+
+        roughness:
+          0.96
       })
     );
 
-  edge.position.y = 0.08;
-  edge.receiveShadow = true;
+  edge.position.y =
+    0.08;
+
+  edge.receiveShadow =
+    true;
 
   scene.add(
     edge
@@ -225,7 +754,9 @@ function createPitch(scene) {
             index % 2 === 0
               ? COLORS.grassA
               : COLORS.grassB,
-          roughness: 0.94
+
+          roughness:
+            0.94
         })
       );
 
@@ -238,7 +769,8 @@ function createPitch(scene) {
       0
     );
 
-    stripe.receiveShadow = true;
+    stripe.receiveShadow =
+      true;
 
     scene.add(
       stripe
@@ -246,19 +778,55 @@ function createPitch(scene) {
   }
 }
 
-function createFieldMarkings(scene) {
+function createFieldMarkings(
+  scene
+) {
   const material =
     new THREE.MeshBasicMaterial({
-      color: COLORS.line
+      color:
+        COLORS.line
     });
 
-  const y = 0.55;
+  const y =
+    0.55;
 
-  createLineBox(
+  addFlatLine(
     scene,
-    64,
-    40,
+    0,
     y,
+    -20,
+    64,
+    0.18,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    0,
+    y,
+    20,
+    64,
+    0.18,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    -32,
+    y,
+    0,
+    0.18,
+    40,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    32,
+    y,
+    0,
+    0.18,
+    40,
     material
   );
 
@@ -293,6 +861,24 @@ function createFieldMarkings(scene) {
     centerCircle
   );
 
+  const centerSpot =
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.2,
+        0.2,
+        0.04,
+        16
+      ),
+      material
+    );
+
+  centerSpot.position.y =
+    y + 0.02;
+
+  scene.add(
+    centerSpot
+  );
+
   createPenaltyArea(
     scene,
     -32,
@@ -310,19 +896,6 @@ function createFieldMarkings(scene) {
   );
 }
 
-function createLineBox(
-  scene,
-  width,
-  depth,
-  y,
-  material
-) {
-  addFlatLine(scene, 0, y, -depth / 2, width, 0.18, material);
-  addFlatLine(scene, 0, y, depth / 2, width, 0.18, material);
-  addFlatLine(scene, -width / 2, y, 0, 0.18, depth, material);
-  addFlatLine(scene, width / 2, y, 0, 0.18, depth, material);
-}
-
 function createPenaltyArea(
   scene,
   goalX,
@@ -330,11 +903,17 @@ function createPenaltyArea(
   y,
   material
 ) {
-  const outerDepth = 17;
-  const outerLength = 10;
+  const outerDepth =
+    17;
 
-  const innerDepth = 8;
-  const innerLength = 4;
+  const outerLength =
+    10;
+
+  const innerDepth =
+    8;
+
+  const innerLength =
+    4;
 
   const outerCenterX =
     goalX +
@@ -443,9 +1022,20 @@ function addFlatLine(
   );
 }
 
-function createGoals(scene) {
-  createGoal(scene, -32, -1);
-  createGoal(scene, 32, 1);
+function createGoals(
+  scene
+) {
+  createGoal(
+    scene,
+    -32,
+    -1
+  );
+
+  createGoal(
+    scene,
+    32,
+    1
+  );
 }
 
 function createGoal(
@@ -456,24 +1046,45 @@ function createGoal(
   const group =
     new THREE.Group();
 
-  group.position.x = x;
+  group.position.x =
+    x;
 
-  const material =
+  const postMaterial =
     new THREE.MeshStandardMaterial({
-      color: COLORS.red,
-      roughness: 0.52
+      color:
+        COLORS.red,
+
+      roughness:
+        0.52
     });
 
-  const goalWidth = 8.4;
-  const goalHeight = 3.5;
-  const goalDepth = 2.4;
+  const netMaterial =
+    new THREE.MeshBasicMaterial({
+      color:
+        COLORS.cream,
+
+      transparent:
+        true,
+
+      opacity:
+        0.38
+    });
+
+  const goalWidth =
+    8.4;
+
+  const goalHeight =
+    3.5;
+
+  const goalDepth =
+    2.4;
 
   const leftPost =
     createBox(
       0.22,
       goalHeight,
       0.22,
-      material
+      postMaterial
     );
 
   leftPost.position.set(
@@ -493,7 +1104,7 @@ function createGoal(
       0.22,
       0.22,
       goalWidth,
-      material
+      postMaterial
     );
 
   crossbar.position.set(
@@ -507,7 +1118,7 @@ function createGoal(
       0.14,
       0.14,
       goalWidth,
-      material
+      postMaterial
     );
 
   backTop.position.set(
@@ -524,10 +1135,47 @@ function createGoal(
     backTop
   );
 
+  for (
+    let index = 0;
+    index <= 5;
+    index += 1
+  ) {
+    const z =
+      -goalWidth / 2 +
+      index *
+        (
+          goalWidth /
+          5
+        );
+
+    const netLine =
+      createBox(
+        goalDepth,
+        0.03,
+        0.03,
+        netMaterial
+      );
+
+    netLine.position.set(
+      direction *
+        goalDepth /
+        2,
+      goalHeight + 0.42,
+      z
+    );
+
+    group.add(
+      netLine
+    );
+  }
+
   group.traverse(
     (object) => {
-      if (object.isMesh) {
-        object.castShadow = true;
+      if (
+        object.isMesh
+      ) {
+        object.castShadow =
+          true;
       }
     }
   );
@@ -548,9 +1196,11 @@ function createBall(
         2
       ),
       new THREE.MeshStandardMaterial({
-        color: COLORS.white,
-        roughness: 0.48,
-        metalness: 0.02
+        color:
+          COLORS.white,
+
+        roughness:
+          0.48
       })
     );
 
@@ -560,173 +1210,27 @@ function createBall(
     0
   );
 
-  ball.castShadow = true;
+  ball.castShadow =
+    true;
 
   scene.add(
     ball
   );
 
-  world.ball = ball;
-
-  resetBall(
-    world
-  );
+  world.ball =
+    ball;
 }
 
-export function resetBall(world) {
-  world.ball.position.set(
-    0,
-    0.95,
-    0
-  );
-
-  world.ballVelocity.set(
-    (
-      Math.random() -
-      0.5
-    ) *
-      1.2,
-    0,
-    (
-      Math.random() -
-      0.5
-    ) *
-      1.2
-  );
-
-  world.ballState.lastTouch =
-    null;
-
-  world.ballState.lockTimer =
-    0.5;
-}
-
-function updateBall(
-  world,
-  deltaTime
+function createSidelineDetails(
+  scene
 ) {
-  const ball =
-    world.ball;
-
-  world.ballState.lockTimer =
-    Math.max(
-      0,
-      world.ballState.lockTimer -
-        deltaTime
-    );
-
-  world.ballVelocity.y -=
-    12 *
-    deltaTime;
-
-  ball.position.addScaledVector(
-    world.ballVelocity,
-    deltaTime
-  );
-
-  if (
-    ball.position.y <
-    0.95
-  ) {
-    ball.position.y = 0.95;
-
-    world.ballVelocity.y *=
-      -0.25;
-
-    if (
-      Math.abs(
-        world.ballVelocity.y
-      ) <
-      0.25
-    ) {
-      world.ballVelocity.y = 0;
-    }
-  }
-
-  const friction =
-    Math.exp(
-      -1.5 *
-      deltaTime
-    );
-
-  world.ballVelocity.x *=
-    friction;
-
-  world.ballVelocity.z *=
-    friction;
-
-  if (
-    ball.position.z >
-    19.4
-  ) {
-    ball.position.z = 19.4;
-    world.ballVelocity.z *= -0.62;
-  }
-
-  if (
-    ball.position.z <
-    -19.4
-  ) {
-    ball.position.z = -19.4;
-    world.ballVelocity.z *= -0.62;
-  }
-
-  const insideGoal =
-    Math.abs(
-      ball.position.z
-    ) <
-      4.15;
-
-  if (
-    ball.position.x >
-      32.4 &&
-    insideGoal
-  ) {
-    return "red";
-  }
-
-  if (
-    ball.position.x <
-      -32.4 &&
-    insideGoal
-  ) {
-    return "blue";
-  }
-
-  if (
-    ball.position.x >
-    31.5
-  ) {
-    ball.position.x = 31.5;
-    world.ballVelocity.x *= -0.62;
-  }
-
-  if (
-    ball.position.x <
-    -31.5
-  ) {
-    ball.position.x = -31.5;
-    world.ballVelocity.x *= -0.62;
-  }
-
-  ball.rotation.x +=
-    world.ballVelocity.z *
-    deltaTime *
-    0.7;
-
-  ball.rotation.z -=
-    world.ballVelocity.x *
-    deltaTime *
-    0.7;
-
-  return null;
-}
-
-function createSidelineDetails(scene) {
   const material =
     new THREE.MeshStandardMaterial({
-      color: COLORS.wood,
-      roughness: 0.78
+      color:
+        COLORS.wood,
+
+      roughness:
+        0.78
     });
 
   for (
@@ -749,7 +1253,8 @@ function createSidelineDetails(scene) {
       23.5
     );
 
-    bench.castShadow = true;
+    bench.castShadow =
+      true;
 
     scene.add(
       bench
@@ -757,7 +1262,9 @@ function createSidelineDetails(scene) {
   }
 }
 
-function createGrandstand(scene) {
+function createGrandstand(
+  scene
+) {
   const stand =
     new THREE.Group();
 
@@ -769,9 +1276,21 @@ function createGrandstand(scene) {
 
   const stoneMaterial =
     new THREE.MeshStandardMaterial({
-      color: COLORS.stone,
-      roughness: 0.94
+      color:
+        COLORS.stone,
+
+      roughness:
+        0.94
     });
+
+  const spectatorColors = [
+    0xc94b3f,
+    0x4f73c9,
+    0xe8bf55,
+    0x6fa65d,
+    0xf2a8bc,
+    0xf4e6c8
+  ];
 
   for (
     let row = 0;
@@ -797,19 +1316,69 @@ function createGrandstand(scene) {
         2.15
     );
 
-    step.receiveShadow = true;
+    step.receiveShadow =
+      true;
 
     stand.add(
       step
     );
 
-    createSpectatorRow(
-      stand,
-      row,
-      -row *
-        2.15 +
-        0.2
-    );
+    for (
+      let index = 0;
+      index < 28;
+      index += 1
+    ) {
+      if (
+        (
+          index +
+          row
+        ) %
+          7 ===
+        0
+      ) {
+        continue;
+      }
+
+      const person =
+        new THREE.Mesh(
+          new THREE.CapsuleGeometry(
+            0.24,
+            0.45,
+            3,
+            6
+          ),
+          new THREE.MeshStandardMaterial({
+            color:
+              spectatorColors[
+                (
+                  index +
+                  row *
+                    3
+                ) %
+                  spectatorColors.length
+              ],
+
+            roughness:
+              0.82
+          })
+        );
+
+      person.position.set(
+        -33 +
+          index *
+            2.45,
+        1.7 +
+          row *
+            0.65,
+        -row *
+          2.15 +
+          0.2
+      );
+
+      stand.add(
+        person
+      );
+    }
   }
 
   const scoreboard =
@@ -830,73 +1399,6 @@ function createGrandstand(scene) {
   );
 }
 
-function createSpectatorRow(
-  parent,
-  row,
-  z
-) {
-  const colors = [
-    0xc94b3f,
-    0x4f73c9,
-    0xe8bf55,
-    0x6fa65d,
-    0xf2a8bc,
-    0xf4e6c8
-  ];
-
-  const count = 28;
-
-  for (
-    let index = 0;
-    index < count;
-    index += 1
-  ) {
-    if (
-      (index + row) %
-        7 ===
-      0
-    ) {
-      continue;
-    }
-
-    const person =
-      new THREE.Mesh(
-        new THREE.CapsuleGeometry(
-          0.24,
-          0.45,
-          3,
-          6
-        ),
-        new THREE.MeshStandardMaterial({
-          color:
-            colors[
-              (
-                index +
-                row *
-                  3
-              ) %
-                colors.length
-            ],
-          roughness: 0.82
-        })
-      );
-
-    person.position.set(
-      -33 +
-        index *
-          2.45,
-      1.7 +
-        row *
-          0.65,
-      z
-    );
-
-    parent.add(
-      person
-    );
-  }
-}
-
 function createScoreboard() {
   const group =
     new THREE.Group();
@@ -907,8 +1409,11 @@ function createScoreboard() {
       4.2,
       0.8,
       new THREE.MeshStandardMaterial({
-        color: COLORS.dark,
-        roughness: 0.58
+        color:
+          COLORS.dark,
+
+        roughness:
+          0.58
       })
     );
 
@@ -921,15 +1426,20 @@ function createScoreboard() {
       "canvas"
     );
 
-  canvas.width = 1024;
-  canvas.height = 256;
+  canvas.width =
+    1024;
+
+  canvas.height =
+    256;
 
   const context =
     canvas.getContext(
       "2d"
     );
 
-  if (context) {
+  if (
+    context
+  ) {
     context.fillStyle =
       "#202126";
 
@@ -944,7 +1454,7 @@ function createScoreboard() {
       "#f0dfb8";
 
     context.font =
-      "700 82px sans-serif";
+      "700 78px sans-serif";
 
     context.textAlign =
       "center";
@@ -959,10 +1469,10 @@ function createScoreboard() {
       "#ffffff";
 
     context.font =
-      "700 92px sans-serif";
+      "700 86px sans-serif";
 
     context.fillText(
-      "11 VS 11",
+      "11 VS 11 · V0.5",
       512,
       205
     );
@@ -983,11 +1493,13 @@ function createScoreboard() {
         3.2
       ),
       new THREE.MeshBasicMaterial({
-        map: texture
+        map:
+          texture
       })
     );
 
-  screen.position.z = 0.42;
+  screen.position.z =
+    0.42;
 
   group.add(
     screen
@@ -996,7 +1508,9 @@ function createScoreboard() {
   return group;
 }
 
-function createTorii(scene) {
+function createTorii(
+  scene
+) {
   const group =
     new THREE.Group();
 
@@ -1008,8 +1522,11 @@ function createTorii(scene) {
 
   const redMaterial =
     new THREE.MeshStandardMaterial({
-      color: COLORS.red,
-      roughness: 0.56
+      color:
+        COLORS.red,
+
+      roughness:
+        0.56
     });
 
   const leftPost =
@@ -1029,7 +1546,8 @@ function createTorii(scene) {
   const rightPost =
     leftPost.clone();
 
-  rightPost.position.x = 4.3;
+  rightPost.position.x =
+    4.3;
 
   const lowerBeam =
     createBox(
@@ -1039,7 +1557,8 @@ function createTorii(scene) {
       redMaterial
     );
 
-  lowerBeam.position.y = 6.5;
+  lowerBeam.position.y =
+    6.5;
 
   const topBeam =
     createBox(
@@ -1049,7 +1568,8 @@ function createTorii(scene) {
       redMaterial
     );
 
-  topBeam.position.y = 8.15;
+  topBeam.position.y =
+    8.15;
 
   group.add(
     leftPost,
@@ -1078,6 +1598,25 @@ function createFestivalDecor(
       index < 18;
       index += 1
     ) {
+      const material =
+        new THREE.MeshStandardMaterial({
+          color:
+            index % 3 === 0
+              ? COLORS.red
+              : COLORS.cream,
+
+          emissive:
+            index % 3 === 0
+              ? COLORS.red
+              : COLORS.gold,
+
+          emissiveIntensity:
+            0.42,
+
+          roughness:
+            0.6
+        });
+
       const lantern =
         new THREE.Mesh(
           new THREE.CylinderGeometry(
@@ -1086,23 +1625,7 @@ function createFestivalDecor(
             0.8,
             10
           ),
-          new THREE.MeshStandardMaterial({
-            color:
-              index % 3 === 0
-                ? COLORS.red
-                : COLORS.cream,
-
-            emissive:
-              index % 3 === 0
-                ? COLORS.red
-                : COLORS.gold,
-
-            emissiveIntensity:
-              0.42,
-
-            roughness:
-              0.6
-          })
+          material
         );
 
       lantern.position.set(
@@ -1118,13 +1641,15 @@ function createFestivalDecor(
       );
 
       world.lanternMaterials.push(
-        lantern.material
+        material
       );
     }
   }
 }
 
-function createCherryGarden(scene) {
+function createCherryGarden(
+  scene
+) {
   const positions = [
     [-45, -27, 1.15],
     [-38, -35, 1.05],
@@ -1165,7 +1690,9 @@ function createCherryGarden(scene) {
   );
 }
 
-function createCherryTree(seed) {
+function createCherryTree(
+  seed
+) {
   const group =
     new THREE.Group();
 
@@ -1178,13 +1705,19 @@ function createCherryTree(seed) {
         8
       ),
       new THREE.MeshStandardMaterial({
-        color: COLORS.woodDark,
-        roughness: 0.9
+        color:
+          COLORS.woodDark,
+
+        roughness:
+          0.9
       })
     );
 
-  trunk.position.y = 3.4;
-  trunk.castShadow = true;
+  trunk.position.y =
+    3.4;
+
+  trunk.castShadow =
+    true;
 
   group.add(
     trunk
@@ -1192,13 +1725,19 @@ function createCherryTree(seed) {
 
   const materials = [
     new THREE.MeshStandardMaterial({
-      color: COLORS.cherry,
-      roughness: 0.86
+      color:
+        COLORS.cherry,
+
+      roughness:
+        0.86
     }),
 
     new THREE.MeshStandardMaterial({
-      color: COLORS.cherryLight,
-      roughness: 0.86
+      color:
+        COLORS.cherryLight,
+
+      roughness:
+        0.86
     })
   ];
 
@@ -1230,10 +1769,14 @@ function createCherryTree(seed) {
       );
 
     blossom.position.set(
-      Math.cos(angle) *
+      Math.cos(
+        angle
+      ) *
         (
           1.4 +
-          pseudoRandom(index) *
+          pseudoRandom(
+            index
+          ) *
             3.4
         ),
 
@@ -1245,7 +1788,9 @@ function createCherryTree(seed) {
         ) *
           3.1,
 
-      Math.sin(angle) *
+      Math.sin(
+        angle
+      ) *
         (
           1.4 +
           pseudoRandom(
@@ -1256,7 +1801,8 @@ function createCherryTree(seed) {
         )
     );
 
-    blossom.castShadow = true;
+    blossom.castShadow =
+      true;
 
     group.add(
       blossom
@@ -1266,11 +1812,16 @@ function createCherryTree(seed) {
   return group;
 }
 
-function createBoundary(scene) {
+function createBoundary(
+  scene
+) {
   const wallMaterial =
     new THREE.MeshStandardMaterial({
-      color: COLORS.cream,
-      roughness: 0.92
+      color:
+        COLORS.cream,
+
+      roughness:
+        0.92
     });
 
   for (
@@ -1330,8 +1881,8 @@ function createPetals(
 ) {
   const count =
     world.isMobile
-      ? 180
-      : 360;
+      ? 150
+      : 320;
 
   const positions =
     new Float32Array(
@@ -1339,37 +1890,53 @@ function createPetals(
         3
     );
 
-  const speeds = [];
+  const speeds =
+    [];
 
   for (
     let index = 0;
     index < count;
     index += 1
   ) {
-    positions[index * 3] =
+    positions[
+      index *
+        3
+    ] =
       randomRange(
-        index * 2.1,
+        index *
+          2.1,
         -50,
         50
       );
 
-    positions[index * 3 + 1] =
+    positions[
+      index *
+        3 +
+        1
+    ] =
       randomRange(
-        index * 3.7,
+        index *
+          3.7,
         1,
         18
       );
 
-    positions[index * 3 + 2] =
+    positions[
+      index *
+        3 +
+        2
+    ] =
       randomRange(
-        index * 5.3,
+        index *
+          5.3,
         -35,
         35
       );
 
     speeds.push(
       randomRange(
-        index * 7.1,
+        index *
+          7.1,
         0.35,
         0.95
       )
@@ -1391,14 +1958,22 @@ function createPetals(
     new THREE.Points(
       geometry,
       new THREE.PointsMaterial({
-        color: COLORS.cherryLight,
+        color:
+          COLORS.cherryLight,
+
         size:
           world.isMobile
             ? 0.17
             : 0.21,
-        transparent: true,
-        opacity: 0.72,
-        depthWrite: false
+
+        transparent:
+          true,
+
+        opacity:
+          0.72,
+
+        depthWrite:
+          false
       })
     );
 
@@ -1406,34 +1981,14 @@ function createPetals(
     petals
   );
 
-  world.petals = petals;
-  world.petalPositions = positions;
-  world.petalSpeeds = speeds;
-}
+  world.petals =
+    petals;
 
-export function updateWorld(
-  world,
-  deltaTime,
-  elapsedTime
-) {
-  const goal =
-    updateBall(
-      world,
-      deltaTime
-    );
+  world.petalPositions =
+    positions;
 
-  updatePetals(
-    world,
-    deltaTime,
-    elapsedTime
-  );
-
-  updateLanterns(
-    world,
-    elapsedTime
-  );
-
-  return goal;
+  world.petalSpeeds =
+    speeds;
 }
 
 function updatePetals(
@@ -1481,7 +2036,7 @@ function updatePetals(
           index
       ) *
       deltaTime *
-      0.35;
+      0.3;
 
     positions[zIndex] +=
       Math.cos(
@@ -1491,7 +2046,7 @@ function updatePetals(
             0.7
       ) *
       deltaTime *
-      0.18;
+      0.16;
 
     if (
       positions[yIndex] <
@@ -1511,7 +2066,8 @@ function updatePetals(
   world.petals.geometry
     .attributes
     .position
-    .needsUpdate = true;
+    .needsUpdate =
+      true;
 }
 
 function updateLanterns(
@@ -1551,7 +2107,9 @@ function createBox(
   );
 }
 
-function pseudoRandom(seed) {
+function pseudoRandom(
+  seed
+) {
   const value =
     Math.sin(
       seed *
@@ -1572,7 +2130,9 @@ function randomRange(
   max
 ) {
   return min +
-    pseudoRandom(seed) *
+    pseudoRandom(
+      seed
+    ) *
       (
         max -
         min
