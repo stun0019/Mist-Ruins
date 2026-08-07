@@ -1,452 +1,128 @@
-:root {
-  color-scheme: dark;
-
-  --background: #05070b;
-  --panel: rgba(9, 13, 20, 0.82);
-  --panel-border: rgba(226, 131, 66, 0.28);
-  --text: #ece8df;
-  --muted: #aaa69d;
-  --ember: #e27a38;
-  --ember-light: #ffb070;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-
-  background: var(--background);
-
-  font-family:
-    "Noto Sans TC",
-    "Microsoft JhengHei",
-    sans-serif;
-
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-
-  overscroll-behavior: none;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  -webkit-tap-highlight-color: transparent;
-}
-
-#game-container {
-  position: fixed;
-  inset: 0;
-
-  width: 100%;
-  height: 100%;
-}
-
-#game-container canvas {
-  display: block;
-
-  width: 100%;
-  height: 100%;
-
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.screen {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-
-  display: grid;
-  place-items: center;
-
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-
-  padding:
-    max(12px, env(safe-area-inset-top))
-    max(12px, env(safe-area-inset-right))
-    max(12px, env(safe-area-inset-bottom))
-    max(12px, env(safe-area-inset-left));
-
-  overflow-x: hidden;
-  overflow-y: auto;
-
-  background:
-    radial-gradient(
-      circle at 50% 65%,
-      rgba(184, 78, 28, 0.16),
-      transparent 34%
-    ),
-    linear-gradient(
-      rgba(3, 5, 9, 0.48),
-      rgba(3, 5, 9, 0.88)
-    );
-
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.start-panel,
-.pause-panel {
-  width: min(560px, 100%);
-  max-height: calc(100dvh - 24px);
-
-  padding: clamp(20px, 5vh, 42px);
-
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(20, 25, 34, 0.94),
-      var(--panel)
-    );
-
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-
-  overflow-x: hidden;
-  overflow-y: auto;
-
-  text-align: center;
-}
-
-.eyebrow {
-  margin: 0 0 12px;
-
-  color: var(--ember);
-
-  font-size: clamp(10px, 2vw, 12px);
-  font-weight: 700;
-  letter-spacing: 0.24em;
-}
-
-h1,
-h2 {
-  margin: 0;
-
-  color: var(--text);
-
-  font-weight: 500;
-  letter-spacing: 0.12em;
-}
-
-h1 {
-  font-size: clamp(32px, 8vw, 58px);
-}
-
-h2 {
-  font-size: clamp(28px, 7vw, 34px);
-}
-
-.description {
-  max-width: 430px;
-
-  margin:
-    clamp(14px, 4vh, 24px)
-    auto
-    clamp(18px, 4vh, 30px);
-
-  color: var(--muted);
-
-  font-size: clamp(13px, 2.5vw, 15px);
-  line-height: 1.8;
-}
-
-#start-button {
-  min-width: 180px;
-
-  padding: 14px 30px;
-
-  border: 1px solid rgba(255, 169, 105, 0.45);
-  border-radius: 3px;
-
-  color: #fff5ea;
-
-  background:
-    linear-gradient(
-      180deg,
-      rgba(210, 102, 43, 0.94),
-      rgba(139, 57, 24, 0.94)
-    );
-
-  box-shadow:
-    0 8px 28px rgba(191, 75, 25, 0.2);
-
-  cursor: pointer;
-
-  transition:
-    transform 160ms ease,
-    filter 160ms ease,
-    box-shadow 160ms ease;
-}
-
-#start-button:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.12);
-
-  box-shadow:
-    0 12px 34px rgba(213, 89, 32, 0.3);
-}
-
-#start-button:active {
-  transform: translateY(0);
-}
-
-#start-button:focus-visible {
-  outline: 2px solid var(--ember-light);
-  outline-offset: 4px;
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-
-  gap: 8px 18px;
-
-  margin-top: clamp(16px, 4vh, 26px);
-
-  color: #777c85;
-
-  font-size: 12px;
-}
-
-.pause-panel p:last-child {
-  margin: 18px 0 0;
-
-  color: var(--muted);
-}
-
-#hud {
-  position: fixed;
-  z-index: 10;
-  inset: 0;
-
-  pointer-events: none;
-}
-
-.location {
-  position: absolute;
-
-  top: max(28px, env(safe-area-inset-top));
-  left: max(30px, env(safe-area-inset-left));
-
-  display: flex;
-  flex-direction: column;
-
-  gap: 4px;
-
-  padding-left: 14px;
-
-  border-left: 2px solid var(--ember);
-}
-
-.location-label {
-  color: #858a91;
-
-  font-size: 11px;
-  letter-spacing: 0.18em;
-}
-
-.location strong {
-  color: #e9e5dc;
-
-  font-size: 17px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-}
-
-.crosshair {
-  position: absolute;
-
-  top: 50%;
-  left: 50%;
-
-  width: 5px;
-  height: 5px;
-
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
-
-  transform: translate(-50%, -50%);
-}
-
-.hint {
-  position: absolute;
-
-  bottom: max(24px, env(safe-area-inset-bottom));
-  left: 50%;
-
-  max-width: calc(100% - 36px);
-
-  padding: 9px 14px;
-
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-
-  color: rgba(235, 235, 235, 0.62);
-  background: rgba(4, 6, 10, 0.52);
-
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-align: center;
-  white-space: nowrap;
-
-  transform: translateX(-50%);
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* 手機與窄螢幕直向版 */
-@media (max-width: 640px) {
-  .start-panel,
-  .pause-panel {
-    width: min(520px, 100%);
-
-    padding: 28px 22px;
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#05040d"
+  >
+
+  <title>影界覺醒｜影王試煉大殿</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
   }
+  </script>
+</head>
 
-  .description {
-    font-size: 14px;
-  }
+<body>
+  <div id="game-container"></div>
 
-  .controls {
-    display: grid;
-    grid-template-columns: repeat(2, auto);
+  <div
+    id="start-screen"
+    class="screen"
+  >
+    <div class="start-panel">
+      <p class="eyebrow">
+        SHADOW ASCENT · SCENE V0.2
+      </p>
 
-    gap: 8px 16px;
-  }
+      <h1>影界覺醒</h1>
 
-  .location {
-    top: max(20px, env(safe-area-inset-top));
-    left: max(20px, env(safe-area-inset-left));
-  }
+      <p class="scene-name">
+        影王試煉大殿
+      </p>
 
-  .hint {
-    bottom: max(18px, env(safe-area-inset-bottom));
+      <p class="description">
+        沉睡於地底的試煉之門再次甦醒。
+        紫色魔力沿著大殿蔓延，而王座後方的影界裂隙，
+        正在等待新的覺醒者。
+      </p>
 
-    width: calc(100% - 36px);
+      <button
+        id="start-button"
+        type="button"
+      >
+        進入試煉
+      </button>
 
-    white-space: normal;
-  }
-}
+      <div class="controls">
+        <span>WASD 移動</span>
+        <span>滑鼠轉向</span>
+        <span>Shift 加速</span>
+        <span>Esc 暫停</span>
+      </div>
+    </div>
+  </div>
 
-/* 觸控裝置 */
-@media (pointer: coarse) {
-  .crosshair {
-    display: none;
-  }
-}
+  <div
+    id="pause-screen"
+    class="screen hidden"
+  >
+    <div class="pause-panel">
+      <p class="eyebrow">
+        TRIAL PAUSED
+      </p>
 
-/* 手機橫向版 */
-@media (max-height: 500px) and (orientation: landscape) {
-  .screen {
-    place-items: center;
+      <h2>試煉暫停</h2>
 
-    padding:
-      max(10px, env(safe-area-inset-top))
-      max(18px, env(safe-area-inset-right))
-      max(10px, env(safe-area-inset-bottom))
-      max(18px, env(safe-area-inset-left));
-  }
+      <p>
+        點擊畫面繼續探索
+      </p>
+    </div>
+  </div>
 
-  .start-panel,
-  .pause-panel {
-    width: min(
-      620px,
-      calc(100vw - 72px),
-      calc(100dvh * 1.55)
-    );
+  <div
+    id="hud"
+    class="hidden"
+  >
+    <div class="location">
+      <span class="location-label">
+        CURRENT AREA
+      </span>
 
-    max-height: calc(100dvh - 20px);
+      <strong>
+        影王試煉大殿
+      </strong>
+    </div>
 
-    padding:
-      clamp(14px, 3.5vh, 22px)
-      clamp(24px, 5vw, 40px);
+    <div
+      class="crosshair"
+      aria-hidden="true"
+    ></div>
 
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
+    <div class="trial-status">
+      <span class="trial-status-dot"></span>
+      影界能量正在甦醒
+    </div>
 
-  .eyebrow {
-    margin-bottom: 5px;
+    <div class="hint">
+      WASD 移動 · Shift 加速 · Esc 暫停
+    </div>
+  </div>
 
-    font-size: clamp(9px, 2.2vh, 11px);
-  }
+  <noscript>
+    此遊戲需要啟用 JavaScript。
+  </noscript>
 
-  h1 {
-    font-size: clamp(28px, 9vh, 42px);
-  }
-
-  h2 {
-    font-size: clamp(25px, 8vh, 34px);
-  }
-
-  .description {
-    max-width: 500px;
-
-    margin:
-      clamp(8px, 2vh, 12px)
-      auto
-      clamp(10px, 2.5vh, 16px);
-
-    font-size: clamp(11px, 2.8vh, 13px);
-    line-height: 1.5;
-  }
-
-  #start-button {
-    min-width: 170px;
-
-    padding:
-      clamp(9px, 2.5vh, 12px)
-      28px;
-  }
-
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    margin-top: clamp(9px, 2.5vh, 14px);
-
-    gap: 5px 14px;
-
-    font-size: clamp(9px, 2.2vh, 11px);
-  }
-
-  .location {
-    top: max(12px, env(safe-area-inset-top));
-    left: max(16px, env(safe-area-inset-left));
-  }
-
-  .location strong {
-    font-size: 14px;
-  }
-
-  .hint {
-    bottom: max(10px, env(safe-area-inset-bottom));
-
-    padding: 7px 12px;
-
-    font-size: 11px;
-  }
-}
+  <script
+    type="module"
+    src="./src/main.js"
+  ></script>
+</body>
+</html>
