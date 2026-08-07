@@ -8,7 +8,7 @@
   >
   <meta name="theme-color" content="#cfe8ee">
 
-  <title>櫻庭競技場｜Three.js Scene Demo</title>
+  <title>櫻庭競技場｜11 vs 11 Demo</title>
 
   <link rel="stylesheet" href="./styles.css">
 
@@ -27,39 +27,54 @@
 
   <div id="start-screen" class="screen">
     <div class="start-panel">
-      <p class="eyebrow">SAKURA ARENA · SCENE V0.3</p>
+      <p class="eyebrow">SAKURA ARENA · MATCH V0.4</p>
       <h1>櫻庭競技場</h1>
-      <p class="scene-name">日式祭典競技場場景測試</p>
+      <p class="scene-name">11 VS 11 自動攻防測試</p>
 
       <p class="description">
-        以影片中的斜俯視競技場為參考，先建立條紋草地、紅色球門、
-        觀眾席、鳥居、櫻花樹、燈籠與場外祭典裝飾。
+        紅藍雙方將依照陣型自行防守、壓迫、傳球與射門。
+        目前為 Three.js 行為測試版本，角色使用低多邊形暫代模型。
       </p>
 
-      <button id="start-button" type="button">查看場景</button>
+      <button id="start-button" type="button">開始比賽</button>
 
       <div class="controls">
-        <span>拖曳旋轉</span>
-        <span>滾輪縮放</span>
-        <span>雙擊重置</span>
-        <span>目前無角色</span>
+        <span>AI 自動比賽</span>
+        <span>拖曳調整視角</span>
+        <span>雙指／滾輪縮放</span>
+        <span>雙擊重置鏡頭</span>
       </div>
     </div>
   </div>
 
   <div id="hud" class="hidden">
-    <div class="location">
-      <span class="location-label">CURRENT AREA</span>
-      <strong>櫻庭競技場</strong>
+    <div class="match-board">
+      <div class="team team-red">
+        <span class="team-dot"></span>
+        <strong>赤櫻</strong>
+      </div>
+
+      <div class="score">
+        <strong id="red-score">0</strong>
+        <span>—</span>
+        <strong id="blue-score">0</strong>
+      </div>
+
+      <div class="team team-blue">
+        <strong>蒼月</strong>
+        <span class="team-dot"></span>
+      </div>
+
+      <div id="match-clock" class="match-clock">00:00</div>
     </div>
 
     <div class="scene-status">
       <span class="scene-status-dot"></span>
-      場景展示模式
+      <span id="match-status">比賽進行中</span>
     </div>
 
     <div class="hint">
-      拖曳旋轉 · 滾輪縮放 · 雙擊重置
+      鏡頭自動跟隨足球 · 拖曳可微調視角
     </div>
   </div>
 
