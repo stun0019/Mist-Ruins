@@ -1,1581 +1,2271 @@
 import * as THREE from "three";
 
 const COLORS = {
-  background: 0x04030a,
+  sky: 0xcfe8ee,
 
-  stone: 0x292636,
-  stoneDark: 0x12111a,
-  stoneLight: 0x403b50,
+  plaza: 0xe7dfcf,
+  plazaDark: 0xcfc4b1,
 
-  metal: 0x181521,
+  grassA: 0x49b85a,
+  grassB: 0x3da950,
+  grassEdge: 0x2d873d,
 
-  purple: 0x8055ff,
-  purpleLight: 0xb99cff,
-  blue: 0x4d79ff,
+  line: 0xf4f1df,
 
-  shadow: 0x090812,
-  throne: 0x100e18
+  red: 0xc94b3f,
+  redDark: 0x8f2f2b,
+
+  wood: 0x7a4a32,
+  woodDark: 0x4b2d22,
+
+  cream: 0xf4e6c8,
+
+  stone: 0xa9a196,
+  stoneDark: 0x746e67,
+
+  cherry: 0xf2a8bc,
+  cherryLight: 0xffc9d5,
+
+  leaf: 0x6fa65d,
+  water: 0x7bc8d2,
+
+  dark: 0x2b2a30,
+  gold: 0xe8bf55,
+  blue: 0x4f73c9,
+  white: 0xffffff
 };
 
-export function createWorld(scene) {
+export function createWorld(
+  scene,
+  options = {}
+) {
   const isMobile =
-    window.matchMedia(
-      "(pointer: coarse)"
-    ).matches ||
-    navigator.maxTouchPoints > 0;
+    Boolean(
+      options.isMobile
+    );
 
   const world = {
     isMobile,
 
-    runeMaterials: [],
-    portalMaterials: [],
-    shadowMaterials: [],
+    petals: null,
+    petalPositions: null,
+    petalSpeeds: [],
 
-    magicLights: [],
-    floatingStones: [],
-
-    magicParticles: null,
-    magicPositions: null,
-    magicSpeeds: [],
-
-    shadowParticles: null,
-    shadowPositions: null,
-    shadowSpeeds: [],
-
-    portalRing: null,
-    portalCore: null,
-
-    altarCore: null,
-    throneAura: null
+    flags: [],
+    lanternMaterials: [],
+    cloudGroups: []
   };
 
   scene.background =
     new THREE.Color(
-      COLORS.background
+      COLORS.sky
     );
 
   scene.fog =
-    new THREE.FogExp2(
-      0x080711,
-      isMobile ? 0.017 : 0.014
+    new THREE.Fog(
+      COLORS.sky,
+      isMobile ? 82 : 96,
+      180
     );
 
-  createLighting(scene, world);
-  createMainFloor(scene);
-  createEntranceCorridor(scene);
-  createRunePath(scene, world);
-  createGreatHall(scene);
-  createColumns(scene);
-  createCentralAltar(scene, world);
-  createThrone(scene, world);
-  createShadowRift(scene, world);
-  createFloatingDebris(scene, world);
-  createWallRuins(scene);
-  createMagicParticles(scene, world);
-  createShadowParticles(scene, world);
+  createLighting(
+    scene,
+    world
+  );
+
+  createBase(scene);
+  createPitch(scene);
+  createFieldMarkings(scene);
+  createGoals(scene);
+  createSidelineDetails(scene);
+  createGrandstand(scene);
+  createTorii(scene);
+
+  createFestivalDecor(
+    scene,
+    world
+  );
+
+  createCherryGarden(scene);
+  createPagoda(scene);
+  createBoundary(scene);
+
+  createPetals(
+    scene,
+    world
+  );
+
+  createClouds(
+    scene,
+    world
+  );
 
   return world;
 }
 
-function createLighting(scene, world) {
-  const ambientLight =
+function createLighting(
+  scene,
+  world
+) {
+  const hemisphere =
     new THREE.HemisphereLight(
-      0x25345c,
-      0x08050d,
-      0.62
+      0xf5fbff,
+      0x796f60,
+      2.2
     );
 
-  scene.add(ambientLight);
-
-  const topLight =
-    new THREE.DirectionalLight(
-      0x779cff,
-      1.75
-    );
-
-  topLight.position.set(
-    -12,
-    34,
-    18
+  scene.add(
+    hemisphere
   );
 
-  topLight.castShadow = true;
+  const sun =
+    new THREE.DirectionalLight(
+      0xfff3d6,
+      3.1
+    );
+
+  sun.position.set(
+    -42,
+    68,
+    38
+  );
+
+  sun.castShadow = true;
 
   const shadowSize =
     world.isMobile
       ? 1024
       : 2048;
 
-  topLight.shadow.mapSize.set(
+  sun.shadow.mapSize.set(
     shadowSize,
     shadowSize
   );
 
-  topLight.shadow.camera.left = -40;
-  topLight.shadow.camera.right = 40;
-  topLight.shadow.camera.top = 55;
-  topLight.shadow.camera.bottom = -55;
-  topLight.shadow.camera.near = 1;
-  topLight.shadow.camera.far = 130;
+  sun.shadow.camera.left = -68;
+  sun.shadow.camera.right = 68;
+  sun.shadow.camera.top = 58;
+  sun.shadow.camera.bottom = -58;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 180;
 
-  topLight.shadow.bias = -0.0005;
-
-  scene.add(topLight);
-
-  const hallBackLight =
-    new THREE.PointLight(
-      COLORS.purple,
-      44,
-      78,
-      2
-    );
-
-  hallBackLight.position.set(
-    0,
-    12,
-    -48
-  );
-
-  scene.add(hallBackLight);
-
-  world.magicLights.push(
-    hallBackLight
-  );
-
-  const blueFill =
-    new THREE.PointLight(
-      COLORS.blue,
-      24,
-      60,
-      2
-    );
-
-  blueFill.position.set(
-    -18,
-    14,
-    -12
-  );
-
-  scene.add(blueFill);
-}
-
-function createMainFloor(scene) {
-  const floorMaterial =
-    new THREE.MeshStandardMaterial({
-      color: COLORS.stoneDark,
-      roughness: 0.84,
-      metalness: 0.05
-    });
-
-  const floor =
-    new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        72,
-        130
-      ),
-      floorMaterial
-    );
-
-  floor.rotation.x =
-    -Math.PI / 2;
-
-  floor.position.set(
-    0,
-    -0.04,
-    -18
-  );
-
-  floor.receiveShadow = true;
-
-  scene.add(floor);
-
-  const sideVoidMaterial =
-    new THREE.MeshBasicMaterial({
-      color: 0x020207
-    });
-
-  const leftVoid =
-    new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        36,
-        130
-      ),
-      sideVoidMaterial
-    );
-
-  leftVoid.rotation.x =
-    -Math.PI / 2;
-
-  leftVoid.position.set(
-    -52,
-    0,
-    -18
-  );
-
-  const rightVoid =
-    leftVoid.clone();
-
-  rightVoid.position.x = 52;
+  sun.shadow.bias =
+    -0.00035;
 
   scene.add(
-    leftVoid,
-    rightVoid
+    sun
+  );
+
+  const fill =
+    new THREE.DirectionalLight(
+      0xb7ddff,
+      0.75
+    );
+
+  fill.position.set(
+    50,
+    25,
+    -45
+  );
+
+  scene.add(
+    fill
   );
 }
 
-function createEntranceCorridor(scene) {
-  const floorMaterial =
-    createStoneMaterial(
-      COLORS.stone
+function createBase(scene) {
+  const base =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        104,
+        1.6,
+        98
+      ),
+      new THREE.MeshStandardMaterial({
+        color: COLORS.plaza,
+        roughness: 0.9,
+        metalness: 0
+      })
     );
+
+  base.position.y = -0.8;
+  base.receiveShadow = true;
+
+  scene.add(
+    base
+  );
+
+  const lowerBase =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        108,
+        1.5,
+        102
+      ),
+      new THREE.MeshStandardMaterial({
+        color: COLORS.plazaDark,
+        roughness: 0.96
+      })
+    );
+
+  lowerBase.position.y =
+    -1.75;
+
+  lowerBase.receiveShadow =
+    true;
+
+  scene.add(
+    lowerBase
+  );
+}
+
+function createPitch(scene) {
+  const fieldWidth = 64;
+  const fieldDepth = 40;
+  const stripeCount = 8;
+
+  const stripeWidth =
+    fieldWidth /
+    stripeCount;
+
+  const edge =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        fieldWidth + 2.2,
+        0.5,
+        fieldDepth + 2.2
+      ),
+      new THREE.MeshStandardMaterial({
+        color: COLORS.grassEdge,
+        roughness: 0.96
+      })
+    );
+
+  edge.position.y = 0.08;
+  edge.receiveShadow = true;
+
+  scene.add(
+    edge
+  );
 
   for (
     let index = 0;
-    index < 15;
+    index < stripeCount;
     index += 1
   ) {
-    const slab =
+    const stripe =
       new THREE.Mesh(
         new THREE.BoxGeometry(
-          8.5,
-          0.32,
-          3.1
+          stripeWidth + 0.03,
+          0.28,
+          fieldDepth
         ),
-        floorMaterial
+        new THREE.MeshStandardMaterial({
+          color:
+            index % 2 === 0
+              ? COLORS.grassA
+              : COLORS.grassB,
+          roughness: 0.94
+        })
       );
 
-    slab.position.set(
-      randomRange(
-        index * 4.7,
-        -0.18,
-        0.18
-      ),
-      0.12,
-      33 - index * 3
+    stripe.position.set(
+      -fieldWidth / 2 +
+        stripeWidth / 2 +
+        index * stripeWidth,
+      0.38,
+      0
     );
 
-    slab.rotation.y =
-      randomRange(
-        index * 8.2,
-        -0.025,
-        0.025
-      );
-
-    slab.castShadow = true;
-    slab.receiveShadow = true;
-
-    scene.add(slab);
-  }
-
-  const wallMaterial =
-    createStoneMaterial(
-      COLORS.stoneDark
-    );
-
-  for (
-    let side = -1;
-    side <= 1;
-    side += 2
-  ) {
-    for (
-      let index = 0;
-      index < 7;
-      index += 1
-    ) {
-      const wall =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            2.3,
-            8 + pseudoRandom(index) * 3,
-            5
-          ),
-          wallMaterial
-        );
-
-      wall.position.set(
-        side * 8.2,
-        wall.geometry.parameters
-          .height / 2,
-        30 - index * 6.2
-      );
-
-      wall.rotation.y =
-        side *
-        randomRange(
-          index * 3.8,
-          -0.05,
-          0.05
-        );
-
-      wall.castShadow = true;
-      wall.receiveShadow = true;
-
-      scene.add(wall);
-    }
-  }
-
-  createEntranceArch(scene);
-}
-
-function createEntranceArch(scene) {
-  const material =
-    createStoneMaterial(
-      COLORS.stone
-    );
-
-  const left =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        3.2,
-        14,
-        4
-      ),
-      material
-    );
-
-  left.position.set(
-    -7.2,
-    7,
-    11
-  );
-
-  const right =
-    left.clone();
-
-  right.position.x = 7.2;
-
-  const top =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        17.5,
-        3,
-        4
-      ),
-      material
-    );
-
-  top.position.set(
-    0,
-    13.2,
-    11
-  );
-
-  [
-    left,
-    right,
-    top
-  ].forEach((mesh) => {
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    scene.add(mesh);
-  });
-}
-
-function createRunePath(scene, world) {
-  const runeMaterial =
-    new THREE.MeshStandardMaterial({
-      color: COLORS.purple,
-      emissive: COLORS.purple,
-      emissiveIntensity: 2.1,
-      roughness: 0.4,
-      metalness: 0.08
-    });
-
-  world.runeMaterials.push(
-    runeMaterial
-  );
-
-  const centerLine =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        0.15,
-        0.035,
-        76
-      ),
-      runeMaterial
-    );
-
-  centerLine.position.set(
-    0,
-    0.28,
-    -10
-  );
-
-  scene.add(centerLine);
-
-  for (
-    let index = 0;
-    index < 18;
-    index += 1
-  ) {
-    const z =
-      27 - index * 4.25;
-
-    const leftRune =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          2.2,
-          0.04,
-          0.11
-        ),
-        runeMaterial
-      );
-
-    leftRune.position.set(
-      -1.5,
-      0.29,
-      z
-    );
-
-    leftRune.rotation.y =
-      index % 2 === 0
-        ? 0.45
-        : -0.45;
-
-    const rightRune =
-      leftRune.clone();
-
-    rightRune.position.x = 1.5;
-    rightRune.rotation.y *= -1;
+    stripe.receiveShadow = true;
 
     scene.add(
-      leftRune,
-      rightRune
+      stripe
     );
-
-    if (index % 3 === 0) {
-      const circle =
-        new THREE.Mesh(
-          new THREE.TorusGeometry(
-            1.8,
-            0.065,
-            6,
-            28
-          ),
-          runeMaterial
-        );
-
-      circle.rotation.x =
-        -Math.PI / 2;
-
-      circle.position.set(
-        0,
-        0.31,
-        z
-      );
-
-      scene.add(circle);
-    }
   }
 }
 
-function createGreatHall(scene) {
-  const hallMaterial =
-    createStoneMaterial(
-      COLORS.stoneDark
-    );
-
-  const hallBase =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        27,
-        29,
-        0.8,
-        16
-      ),
-      hallMaterial
-    );
-
-  hallBase.position.set(
-    0,
-    0.2,
-    -30
-  );
-
-  hallBase.castShadow = true;
-  hallBase.receiveShadow = true;
-
-  scene.add(hallBase);
-
-  const innerMaterial =
-    createStoneMaterial(
-      COLORS.stone
-    );
-
-  const innerFloor =
-    new THREE.Mesh(
-      new THREE.CircleGeometry(
-        23,
-        16
-      ),
-      innerMaterial
-    );
-
-  innerFloor.rotation.x =
-    -Math.PI / 2;
-
-  innerFloor.position.set(
-    0,
-    0.61,
-    -30
-  );
-
-  innerFloor.receiveShadow = true;
-
-  scene.add(innerFloor);
-
-  createFloorCracks(scene);
-}
-
-function createFloorCracks(scene) {
-  const crackMaterial =
+function createFieldMarkings(scene) {
+  const material =
     new THREE.MeshBasicMaterial({
-      color: 0x07060b
+      color: COLORS.line
     });
 
-  const crackData = [
-    [-8, -20, 8, 0.18, 0.3],
-    [7, -23, 6, 0.16, -0.7],
-    [-12, -32, 7, 0.14, 0.8],
-    [11, -35, 9, 0.17, -0.2],
-    [-5, -43, 8, 0.16, 0.5],
-    [5, -47, 6, 0.13, -0.85]
-  ];
+  const y = 0.55;
 
-  crackData.forEach(
-    ([
-      x,
-      z,
-      length,
-      width,
-      rotation
-    ]) => {
-      const crack =
-        new THREE.Mesh(
-          new THREE.PlaneGeometry(
-            length,
-            width
-          ),
-          crackMaterial
-        );
-
-      crack.rotation.x =
-        -Math.PI / 2;
-
-      crack.rotation.z =
-        rotation;
-
-      crack.position.set(
-        x,
-        0.625,
-        z
-      );
-
-      scene.add(crack);
-    }
+  createLineBox(
+    scene,
+    64,
+    40,
+    y,
+    material
   );
-}
 
-function createColumns(scene) {
-  const material =
-    createStoneMaterial(
-      COLORS.stone
+  addFlatLine(
+    scene,
+    0,
+    y,
+    0,
+    0.18,
+    40,
+    material
+  );
+
+  const centerCircle =
+    new THREE.Mesh(
+      new THREE.TorusGeometry(
+        5.1,
+        0.11,
+        6,
+        64
+      ),
+      material
     );
 
-  const positions = [
-    [-18, -14],
-    [18, -14],
+  centerCircle.rotation.x =
+    -Math.PI / 2;
 
-    [-22, -25],
-    [22, -25],
+  centerCircle.position.y =
+    y + 0.01;
 
-    [-22, -38],
-    [22, -38],
+  scene.add(
+    centerCircle
+  );
 
-    [-17, -50],
-    [17, -50]
-  ];
+  const centerSpot =
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.22,
+        0.22,
+        0.04,
+        20
+      ),
+      material
+    );
 
-  positions.forEach(
-    ([x, z], index) => {
-      const height =
-        index === 2 ||
-        index === 5
-          ? 12
-          : 18;
+  centerSpot.position.y =
+    y + 0.02;
 
-      const column =
-        createColumn(
-          material,
-          height,
-          index
-        );
+  scene.add(
+    centerSpot
+  );
 
-      column.position.set(
-        x,
-        0,
-        z
-      );
+  createPenaltyArea(
+    scene,
+    -32,
+    1,
+    y,
+    material
+  );
 
-      scene.add(column);
-    }
+  createPenaltyArea(
+    scene,
+    32,
+    -1,
+    y,
+    material
+  );
+
+  createCornerArc(
+    scene,
+    -32,
+    -20,
+    0,
+    material
+  );
+
+  createCornerArc(
+    scene,
+    -32,
+    20,
+    Math.PI / 2,
+    material
+  );
+
+  createCornerArc(
+    scene,
+    32,
+    20,
+    Math.PI,
+    material
+  );
+
+  createCornerArc(
+    scene,
+    32,
+    -20,
+    Math.PI * 1.5,
+    material
   );
 }
 
-function createColumn(
-  material,
-  height,
-  index
+function createLineBox(
+  scene,
+  width,
+  depth,
+  y,
+  material
+) {
+  addFlatLine(
+    scene,
+    0,
+    y,
+    -depth / 2,
+    width,
+    0.18,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    0,
+    y,
+    depth / 2,
+    width,
+    0.18,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    -width / 2,
+    y,
+    0,
+    0.18,
+    depth,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    width / 2,
+    y,
+    0,
+    0.18,
+    depth,
+    material
+  );
+}
+
+function createPenaltyArea(
+  scene,
+  goalX,
+  direction,
+  y,
+  material
+) {
+  const outerDepth = 17;
+  const outerLength = 10;
+
+  const innerDepth = 8;
+  const innerLength = 4;
+
+  const outerCenterX =
+    goalX +
+    direction *
+      outerLength /
+      2;
+
+  const innerCenterX =
+    goalX +
+    direction *
+      innerLength /
+      2;
+
+  addFlatLine(
+    scene,
+    outerCenterX,
+    y,
+    -outerDepth / 2,
+    outerLength,
+    0.16,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    outerCenterX,
+    y,
+    outerDepth / 2,
+    outerLength,
+    0.16,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    goalX +
+      direction *
+        outerLength,
+    y,
+    0,
+    0.16,
+    outerDepth,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    innerCenterX,
+    y,
+    -innerDepth / 2,
+    innerLength,
+    0.16,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    innerCenterX,
+    y,
+    innerDepth / 2,
+    innerLength,
+    0.16,
+    material
+  );
+
+  addFlatLine(
+    scene,
+    goalX +
+      direction *
+        innerLength,
+    y,
+    0,
+    0.16,
+    innerDepth,
+    material
+  );
+
+  const spot =
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.17,
+        0.17,
+        0.04,
+        16
+      ),
+      material
+    );
+
+  spot.position.set(
+    goalX +
+      direction *
+        7.5,
+    y + 0.02,
+    0
+  );
+
+  scene.add(
+    spot
+  );
+}
+
+function createCornerArc(
+  scene,
+  x,
+  z,
+  rotation,
+  material
+) {
+  const arc =
+    new THREE.Mesh(
+      new THREE.TorusGeometry(
+        1.15,
+        0.09,
+        5,
+        24,
+        Math.PI / 2
+      ),
+      material
+    );
+
+  arc.rotation.x =
+    -Math.PI / 2;
+
+  arc.rotation.z =
+    rotation;
+
+  arc.position.set(
+    x,
+    0.56,
+    z
+  );
+
+  scene.add(
+    arc
+  );
+}
+
+function addFlatLine(
+  scene,
+  x,
+  y,
+  z,
+  width,
+  depth,
+  material
+) {
+  const line =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        width,
+        0.04,
+        depth
+      ),
+      material
+    );
+
+  line.position.set(
+    x,
+    y,
+    z
+  );
+
+  scene.add(
+    line
+  );
+}
+
+function createGoals(scene) {
+  createGoal(
+    scene,
+    -32,
+    -1
+  );
+
+  createGoal(
+    scene,
+    32,
+    1
+  );
+}
+
+function createGoal(
+  scene,
+  x,
+  direction
 ) {
   const group =
     new THREE.Group();
 
-  const base =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        1.8,
-        2.25,
-        1.1,
-        8
-      ),
-      material
+  group.position.x = x;
+
+  const postMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.red,
+      roughness: 0.52,
+      metalness: 0.08
+    });
+
+  const netMaterial =
+    new THREE.MeshBasicMaterial({
+      color: 0xf4f0df,
+      transparent: true,
+      opacity: 0.48
+    });
+
+  const goalWidth = 8.4;
+  const goalHeight = 3.5;
+  const goalDepth = 2.4;
+
+  const leftPost =
+    createBox(
+      0.22,
+      goalHeight,
+      0.22,
+      postMaterial
     );
 
-  base.position.y = 0.55;
+  leftPost.position.set(
+    0,
+    goalHeight / 2 + 0.48,
+    -goalWidth / 2
+  );
 
-  const lower =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        1.3,
-        1.55,
-        1.1,
-        8
-      ),
-      material
+  const rightPost =
+    leftPost.clone();
+
+  rightPost.position.z =
+    goalWidth / 2;
+
+  const crossbar =
+    createBox(
+      0.22,
+      0.22,
+      goalWidth,
+      postMaterial
     );
 
-  lower.position.y = 1.55;
+  crossbar.position.set(
+    0,
+    goalHeight + 0.48,
+    0
+  );
 
-  const shaftHeight =
-    height - 3;
-
-  const shaft =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        1.05,
-        1.22,
-        shaftHeight,
-        8
-      ),
-      material
+  const backLeft =
+    createBox(
+      0.14,
+      goalHeight,
+      0.14,
+      postMaterial
     );
 
-  shaft.position.y =
-    2.1 + shaftHeight / 2;
+  backLeft.position.set(
+    direction *
+      goalDepth,
+    goalHeight / 2 + 0.48,
+    -goalWidth / 2
+  );
 
-  const top =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        1.75,
-        1.1,
-        1,
-        8
-      ),
-      material
+  const backRight =
+    backLeft.clone();
+
+  backRight.position.z =
+    goalWidth / 2;
+
+  const backTop =
+    createBox(
+      0.14,
+      0.14,
+      goalWidth,
+      postMaterial
     );
 
-  top.position.y =
-    height - 0.5;
+  backTop.position.set(
+    direction *
+      goalDepth,
+    goalHeight + 0.48,
+    0
+  );
 
-  [
-    base,
-    lower,
-    shaft,
-    top
-  ].forEach((mesh) => {
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+  group.add(
+    leftPost,
+    rightPost,
+    crossbar,
+    backLeft,
+    backRight,
+    backTop
+  );
 
-    group.add(mesh);
-  });
-
-  if (
-    index === 2 ||
-    index === 5
+  for (
+    let index = 0;
+    index <= 7;
+    index += 1
   ) {
-    group.rotation.z =
-      index === 2
-        ? -0.08
-        : 0.07;
+    const z =
+      -goalWidth / 2 +
+      goalWidth /
+        7 *
+        index;
+
+    const line =
+      createBox(
+        goalDepth,
+        0.035,
+        0.035,
+        netMaterial
+      );
+
+    line.position.set(
+      direction *
+        goalDepth /
+        2,
+      goalHeight + 0.46,
+      z
+    );
+
+    group.add(
+      line
+    );
   }
 
-  return group;
+  for (
+    let index = 0;
+    index <= 4;
+    index += 1
+  ) {
+    const y =
+      0.48 +
+      goalHeight /
+        4 *
+        index;
+
+    const line =
+      createBox(
+        goalDepth,
+        0.035,
+        0.035,
+        netMaterial
+      );
+
+    line.position.set(
+      direction *
+        goalDepth /
+        2,
+      y,
+      -goalWidth / 2
+    );
+
+    group.add(
+      line
+    );
+
+    const second =
+      line.clone();
+
+    second.position.z =
+      goalWidth / 2;
+
+    group.add(
+      second
+    );
+  }
+
+  group.traverse(
+    (object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    }
+  );
+
+  scene.add(
+    group
+  );
 }
 
-function createCentralAltar(
-  scene,
-  world
-) {
-  const baseMaterial =
-    createStoneMaterial(
-      COLORS.stoneDark
-    );
-
-  const upperMaterial =
-    createStoneMaterial(
-      COLORS.stoneLight
-    );
-
-  const base =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        7,
-        8,
-        1.2,
-        12
-      ),
-      baseMaterial
-    );
-
-  base.position.set(
-    0,
-    1.2,
-    -29
-  );
-
-  const middle =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        5.2,
-        6,
-        0.8,
-        12
-      ),
-      upperMaterial
-    );
-
-  middle.position.set(
-    0,
-    2.15,
-    -29
-  );
-
-  const upper =
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(
-        3.5,
-        4.4,
-        0.7,
-        12
-      ),
-      baseMaterial
-    );
-
-  upper.position.set(
-    0,
-    2.88,
-    -29
-  );
-
-  [
-    base,
-    middle,
-    upper
-  ].forEach((mesh) => {
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    scene.add(mesh);
-  });
-
-  const coreMaterial =
+function createSidelineDetails(scene) {
+  const benchMaterial =
     new THREE.MeshStandardMaterial({
-      color: COLORS.purpleLight,
-      emissive: COLORS.purple,
-      emissiveIntensity: 3.2,
-      roughness: 0.18,
-      metalness: 0.2
+      color: COLORS.wood,
+      roughness: 0.78
     });
 
-  world.runeMaterials.push(
-    coreMaterial
+  createBench(
+    scene,
+    -13,
+    23.5,
+    benchMaterial
   );
 
-  const core =
-    new THREE.Mesh(
-      new THREE.OctahedronGeometry(
-        1.25,
-        0
-      ),
-      coreMaterial
+  createBench(
+    scene,
+    13,
+    23.5,
+    benchMaterial
+  );
+
+  for (
+    const x of [
+      -24,
+      -8,
+      8,
+      24
+    ]
+  ) {
+    createCornerFlag(
+      scene,
+      x,
+      -22.4,
+      x % 16 === 0
+        ? COLORS.blue
+        : COLORS.red
     );
+  }
 
-  core.position.set(
-    0,
-    5,
-    -29
+  createCornerFlag(
+    scene,
+    -31.2,
+    20.8,
+    COLORS.red
   );
 
-  core.castShadow = true;
-
-  scene.add(core);
-
-  world.altarCore = core;
-
-  const ringMaterial =
-    new THREE.MeshBasicMaterial({
-      color: COLORS.purpleLight,
-      transparent: true,
-      opacity: 0.72,
-      blending:
-        THREE.AdditiveBlending,
-      depthWrite: false
-    });
-
-  const ring =
-    new THREE.Mesh(
-      new THREE.TorusGeometry(
-        2.1,
-        0.08,
-        8,
-        36
-      ),
-      ringMaterial
-    );
-
-  ring.position.set(
-    0,
-    5,
-    -29
+  createCornerFlag(
+    scene,
+    31.2,
+    20.8,
+    COLORS.blue
   );
 
-  ring.rotation.x =
-    Math.PI / 2;
-
-  scene.add(ring);
-
-  world.portalMaterials.push(
-    ringMaterial
-  );
-
-  const altarLight =
-    new THREE.PointLight(
-      COLORS.purple,
-      world.isMobile ? 34 : 52,
-      25,
-      2
-    );
-
-  altarLight.position.set(
-    0,
-    5,
-    -29
-  );
-
-  scene.add(altarLight);
-
-  world.magicLights.push(
-    altarLight
-  );
-}
-
-function createThrone(scene, world) {
-  const throneGroup =
+  const ballRack =
     new THREE.Group();
 
-  throneGroup.position.set(
+  ballRack.position.set(
     0,
     0,
-    -51
+    24.5
   );
 
-  const throneMaterial =
-    new THREE.MeshStandardMaterial({
-      color: COLORS.throne,
-      roughness: 0.65,
-      metalness: 0.25
-    });
-
-  const base =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        10,
-        1.2,
-        7
-      ),
-      throneMaterial
+  const rack =
+    createBox(
+      4.8,
+      0.45,
+      1.2,
+      new THREE.MeshStandardMaterial({
+        color: COLORS.woodDark,
+        roughness: 0.8
+      })
     );
 
-  base.position.y = 1;
+  rack.position.y = 0.5;
+
+  ballRack.add(
+    rack
+  );
+
+  for (
+    let index = 0;
+    index < 5;
+    index += 1
+  ) {
+    const ball =
+      new THREE.Mesh(
+        new THREE.IcosahedronGeometry(
+          0.34,
+          1
+        ),
+        new THREE.MeshStandardMaterial({
+          color:
+            index % 2 === 0
+              ? COLORS.white
+              : COLORS.gold,
+          roughness: 0.72
+        })
+      );
+
+    ball.position.set(
+      -1.6 +
+        index *
+          0.8,
+      1.05,
+      0
+    );
+
+    ball.castShadow = true;
+
+    ballRack.add(
+      ball
+    );
+  }
+
+  scene.add(
+    ballRack
+  );
+}
+
+function createBench(
+  scene,
+  x,
+  z,
+  material
+) {
+  const group =
+    new THREE.Group();
+
+  group.position.set(
+    x,
+    0,
+    z
+  );
 
   const seat =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        6,
-        1.1,
-        4
-      ),
-      throneMaterial
+    createBox(
+      8.8,
+      0.35,
+      1.2,
+      material
     );
 
-  seat.position.set(
-    0,
-    2.5,
-    0.4
-  );
+  seat.position.y = 1.1;
 
   const back =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        7,
-        12,
-        1.5
-      ),
-      throneMaterial
+    createBox(
+      8.8,
+      1.5,
+      0.28,
+      material
     );
 
   back.position.set(
     0,
-    8,
-    -1.1
+    1.9,
+    0.45
   );
 
-  const leftWing =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        2,
-        11,
-        1.4
-      ),
-      throneMaterial
+  const legLeft =
+    createBox(
+      0.35,
+      1.1,
+      0.7,
+      material
     );
 
-  leftWing.position.set(
-    -4.1,
-    7.5,
-    -1
+  legLeft.position.set(
+    -3.4,
+    0.55,
+    0
   );
 
-  leftWing.rotation.z = 0.22;
+  const legRight =
+    legLeft.clone();
 
-  const rightWing =
-    leftWing.clone();
+  legRight.position.x =
+    3.4;
 
-  rightWing.position.x = 4.1;
-  rightWing.rotation.z = -0.22;
-
-  const leftArm =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        1.3,
-        1.1,
-        5
-      ),
-      throneMaterial
-    );
-
-  leftArm.position.set(
-    -3.6,
-    4,
-    0.4
-  );
-
-  const rightArm =
-    leftArm.clone();
-
-  rightArm.position.x = 3.6;
-
-  [
-    base,
+  group.add(
     seat,
     back,
-    leftWing,
-    rightWing,
-    leftArm,
-    rightArm
-  ].forEach((mesh) => {
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    throneGroup.add(mesh);
-  });
-
-  scene.add(throneGroup);
-
-  const auraMaterial =
-    new THREE.MeshBasicMaterial({
-      color: COLORS.purple,
-      transparent: true,
-      opacity: 0.18,
-      blending:
-        THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide
-    });
-
-  const aura =
-    new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        16,
-        22
-      ),
-      auraMaterial
-    );
-
-  aura.position.set(
-    0,
-    10,
-    -52.2
+    legLeft,
+    legRight
   );
 
-  scene.add(aura);
-
-  world.throneAura = aura;
-  world.shadowMaterials.push(
-    auraMaterial
-  );
-
-  const throneLight =
-    new THREE.PointLight(
-      COLORS.purple,
-      world.isMobile ? 24 : 42,
-      32,
-      2
-    );
-
-  throneLight.position.set(
-    0,
-    9,
-    -49
-  );
-
-  scene.add(throneLight);
-
-  world.magicLights.push(
-    throneLight
-  );
-}
-
-function createShadowRift(
-  scene,
-  world
-) {
-  const ringMaterial =
-    new THREE.MeshBasicMaterial({
-      color: COLORS.purpleLight,
-      transparent: true,
-      opacity: 0.82,
-      blending:
-        THREE.AdditiveBlending,
-      depthWrite: false
-    });
-
-  const outerMaterial =
-    new THREE.MeshBasicMaterial({
-      color: COLORS.blue,
-      transparent: true,
-      opacity: 0.34,
-      blending:
-        THREE.AdditiveBlending,
-      depthWrite: false
-    });
-
-  const coreMaterial =
-    new THREE.MeshBasicMaterial({
-      color: 0x100624,
-      transparent: true,
-      opacity: 0.92,
-      side: THREE.DoubleSide
-    });
-
-  const outerRing =
-    new THREE.Mesh(
-      new THREE.TorusGeometry(
-        8,
-        0.42,
-        12,
-        64
-      ),
-      outerMaterial
-    );
-
-  outerRing.position.set(
-    0,
-    10,
-    -55
-  );
-
-  const innerRing =
-    new THREE.Mesh(
-      new THREE.TorusGeometry(
-        6.8,
-        0.2,
-        10,
-        64
-      ),
-      ringMaterial
-    );
-
-  innerRing.position.set(
-    0,
-    10,
-    -54.8
-  );
-
-  const core =
-    new THREE.Mesh(
-      new THREE.CircleGeometry(
-        6.6,
-        64
-      ),
-      coreMaterial
-    );
-
-  core.position.set(
-    0,
-    10,
-    -55.1
+  group.traverse(
+    (object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    }
   );
 
   scene.add(
-    core,
-    outerRing,
-    innerRing
-  );
-
-  world.portalRing =
-    outerRing;
-
-  world.portalCore =
-    innerRing;
-
-  world.portalMaterials.push(
-    ringMaterial,
-    outerMaterial,
-    coreMaterial
-  );
-
-  createRiftSpikes(
-    scene,
-    ringMaterial
+    group
   );
 }
 
-function createRiftSpikes(
+function createCornerFlag(
   scene,
-  material
+  x,
+  z,
+  color
 ) {
-  const spikeCount = 16;
+  const group =
+    new THREE.Group();
+
+  group.position.set(
+    x,
+    0,
+    z
+  );
+
+  const pole =
+    createBox(
+      0.1,
+      2.8,
+      0.1,
+      new THREE.MeshStandardMaterial({
+        color: COLORS.cream,
+        roughness: 0.55
+      })
+    );
+
+  pole.position.y = 1.7;
+
+  const flagMaterial =
+    new THREE.MeshStandardMaterial({
+      color,
+      side: THREE.DoubleSide,
+      roughness: 0.7
+    });
+
+  const flag =
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        1.1,
+        0.65
+      ),
+      flagMaterial
+    );
+
+  flag.position.set(
+    0.58,
+    2.65,
+    0
+  );
+
+  group.add(
+    pole,
+    flag
+  );
+
+  scene.add(
+    group
+  );
+}
+
+function createGrandstand(scene) {
+  const stand =
+    new THREE.Group();
+
+  stand.position.set(
+    0,
+    0,
+    -29.2
+  );
+
+  const stoneMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.stone,
+      roughness: 0.94
+    });
+
+  const stepDepth = 2.15;
 
   for (
-    let index = 0;
-    index < spikeCount;
-    index += 1
+    let row = 0;
+    row < 5;
+    row += 1
   ) {
-    const angle =
-      index /
-      spikeCount *
-      Math.PI *
-      2;
-
-    const radius = 8.8;
-
-    const length =
-      1.4 +
-      pseudoRandom(index * 7.8) *
-      2.8;
-
-    const spike =
-      new THREE.Mesh(
-        new THREE.ConeGeometry(
-          0.18,
-          length,
-          5
-        ),
-        material
+    const step =
+      createBox(
+        72,
+        0.75 +
+          row *
+            0.62,
+        stepDepth,
+        stoneMaterial
       );
 
-    spike.position.set(
-      Math.cos(angle) * radius,
-      10 +
-        Math.sin(angle) *
-        radius,
-      -54.6
+    step.position.set(
+      0,
+      0.38 +
+        row *
+          0.31,
+      -row *
+        stepDepth
     );
 
-    spike.rotation.z =
-      angle - Math.PI / 2;
+    step.castShadow = true;
+    step.receiveShadow = true;
 
-    scene.add(spike);
+    stand.add(
+      step
+    );
+
+    createSpectatorRow(
+      stand,
+      row,
+      -row *
+        stepDepth +
+        0.2
+    );
   }
+
+  const backWall =
+    createBox(
+      75,
+      4.4,
+      1.2,
+      new THREE.MeshStandardMaterial({
+        color: COLORS.cream,
+        roughness: 0.9
+      })
+    );
+
+  backWall.position.set(
+    0,
+    2.2,
+    -11.5
+  );
+
+  stand.add(
+    backWall
+  );
+
+  const scoreboard =
+    createScoreboard();
+
+  scoreboard.position.set(
+    0,
+    7.4,
+    -10.7
+  );
+
+  stand.add(
+    scoreboard
+  );
+
+  scene.add(
+    stand
+  );
 }
 
-function createFloatingDebris(
-  scene,
-  world
+function createSpectatorRow(
+  parent,
+  row,
+  z
 ) {
-  const material =
-    createStoneMaterial(
-      COLORS.stoneDark
-    );
+  const colors = [
+    0xc94b3f,
+    0x4f73c9,
+    0xe8bf55,
+    0x6fa65d,
+    0xf2a8bc,
+    0xf4e6c8
+  ];
 
-  const count =
-    world.isMobile
-      ? 14
-      : 26;
+  const count = 28;
 
   for (
     let index = 0;
     index < count;
     index += 1
   ) {
-    const size =
-      0.35 +
-      pseudoRandom(index * 5.2) *
-      1.15;
+    if (
+      (index + row) %
+        7 ===
+      0
+    ) {
+      continue;
+    }
 
-    const stone =
+    const person =
+      new THREE.Group();
+
+    person.position.set(
+      -33 +
+        index *
+          2.45,
+      1.2 +
+        row *
+          0.65,
+      z
+    );
+
+    const body =
       new THREE.Mesh(
-        new THREE.DodecahedronGeometry(
-          size,
-          0
+        new THREE.CapsuleGeometry(
+          0.28,
+          0.48,
+          3,
+          6
         ),
-        material
+        new THREE.MeshStandardMaterial({
+          color:
+            colors[
+              (
+                index +
+                row *
+                  3
+              ) %
+                colors.length
+            ],
+          roughness: 0.82
+        })
       );
 
-    const angle =
-      pseudoRandom(index * 8.3) *
-      Math.PI *
-      2;
+    body.position.y = 0.55;
 
-    const radius =
-      8 +
-      pseudoRandom(index * 3.6) *
-      9;
+    const head =
+      new THREE.Mesh(
+        new THREE.SphereGeometry(
+          0.22,
+          8,
+          6
+        ),
+        new THREE.MeshStandardMaterial({
+          color: 0xe6ba94,
+          roughness: 0.9
+        })
+      );
 
-    stone.position.set(
-      Math.cos(angle) * radius,
-      4 +
-        pseudoRandom(index * 9.4) *
-        15,
-      -48 +
-        Math.sin(angle) *
-        5
+    head.position.y = 1.18;
+
+    person.add(
+      body,
+      head
     );
 
-    stone.rotation.set(
-      pseudoRandom(index) * Math.PI,
-      pseudoRandom(index * 2) * Math.PI,
-      pseudoRandom(index * 3) * Math.PI
-    );
-
-    stone.userData = {
-      baseY: stone.position.y,
-
-      floatSpeed:
-        0.35 +
-        pseudoRandom(index * 7) *
-        0.6,
-
-      floatOffset:
-        pseudoRandom(index * 11) *
-        Math.PI *
-        2,
-
-      rotateSpeed:
-        0.08 +
-        pseudoRandom(index * 13) *
-        0.18
-    };
-
-    stone.castShadow = true;
-
-    scene.add(stone);
-
-    world.floatingStones.push(
-      stone
+    parent.add(
+      person
     );
   }
 }
 
-function createWallRuins(scene) {
-  const material =
-    createStoneMaterial(
-      COLORS.stoneDark
+function createScoreboard() {
+  const group =
+    new THREE.Group();
+
+  const frame =
+    createBox(
+      15,
+      4.2,
+      0.8,
+      new THREE.MeshStandardMaterial({
+        color: COLORS.dark,
+        roughness: 0.58
+      })
     );
 
-  const wallData = [
-    [-30, 7, -18, 5, 14, 22],
-    [30, 7, -18, 5, 14, 22],
-
-    [-32, 8, -40, 6, 16, 22],
-    [32, 8, -40, 6, 16, 22],
-
-    [-25, 5, -59, 12, 10, 5],
-    [25, 5, -59, 12, 10, 5]
-  ];
-
-  wallData.forEach(
-    ([
-      x,
-      y,
-      z,
-      width,
-      height,
-      depth
-    ], index) => {
-      const wall =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            width,
-            height,
-            depth
-          ),
-          material
-        );
-
-      wall.position.set(
-        x,
-        y,
-        z
-      );
-
-      wall.rotation.y =
-        randomRange(
-          index * 5.8,
-          -0.08,
-          0.08
-        );
-
-      wall.castShadow = true;
-      wall.receiveShadow = true;
-
-      scene.add(wall);
-    }
+  group.add(
+    frame
   );
 
-  createRubble(scene, material);
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width = 1024;
+  canvas.height = 256;
+
+  const context =
+    canvas.getContext(
+      "2d"
+    );
+
+  if (context) {
+    context.fillStyle =
+      "#202126";
+
+    context.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    context.fillStyle =
+      "#f0dfb8";
+
+    context.font =
+      "700 82px sans-serif";
+
+    context.textAlign =
+      "center";
+
+    context.fillText(
+      "SAKURA ARENA",
+      512,
+      92
+    );
+
+    context.fillStyle =
+      "#ffffff";
+
+    context.font =
+      "700 92px sans-serif";
+
+    context.fillText(
+      "0   -   0",
+      512,
+      205
+    );
+  }
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+  texture.colorSpace =
+    THREE.SRGBColorSpace;
+
+  const screen =
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        13.7,
+        3.2
+      ),
+      new THREE.MeshBasicMaterial({
+        map: texture
+      })
+    );
+
+  screen.position.z = 0.42;
+
+  group.add(
+    screen
+  );
+
+  return group;
 }
 
-function createRubble(
-  scene,
-  material
-) {
-  const groups = [
-    [-13, -17],
-    [14, -19],
-    [-19, -34],
-    [19, -37],
-    [-12, -54],
-    [13, -56]
-  ];
+function createTorii(scene) {
+  const group =
+    new THREE.Group();
 
-  groups.forEach(
-    ([x, z], groupIndex) => {
-      for (
-        let index = 0;
-        index < 6;
-        index += 1
-      ) {
-        const size =
-          0.35 +
-          pseudoRandom(
-            groupIndex * 8 + index
-          ) *
-          1;
+  group.position.set(
+    -13,
+    0,
+    -43.2
+  );
 
-        const rubble =
-          new THREE.Mesh(
-            new THREE.DodecahedronGeometry(
-              size,
-              0
-            ),
-            material
-          );
+  const redMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.red,
+      roughness: 0.56
+    });
 
-        rubble.position.set(
-          x +
-            randomRange(
-              groupIndex * 30 + index,
-              -3,
-              3
-            ),
+  const darkMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.redDark,
+      roughness: 0.65
+    });
 
-          size * 0.45,
+  const leftPost =
+    createBox(
+      0.9,
+      8.8,
+      0.9,
+      redMaterial
+    );
 
-          z +
-            randomRange(
-              groupIndex * 60 + index,
-              -3,
-              3
-            )
-        );
+  leftPost.position.set(
+    -4.3,
+    4.4,
+    0
+  );
 
-        rubble.rotation.set(
-          pseudoRandom(index) *
-            Math.PI,
+  const rightPost =
+    leftPost.clone();
 
-          pseudoRandom(index * 4) *
-            Math.PI,
+  rightPost.position.x =
+    4.3;
 
-          pseudoRandom(index * 8) *
-            Math.PI
-        );
+  const lowerBeam =
+    createBox(
+      10.4,
+      0.75,
+      1,
+      redMaterial
+    );
 
-        rubble.castShadow = true;
-        rubble.receiveShadow = true;
+  lowerBeam.position.y =
+    6.5;
 
-        scene.add(rubble);
+  const topBeam =
+    createBox(
+      12.4,
+      0.9,
+      1.25,
+      redMaterial
+    );
+
+  topBeam.position.y =
+    8.15;
+
+  const cap =
+    createBox(
+      13.8,
+      0.42,
+      1.45,
+      darkMaterial
+    );
+
+  cap.position.y =
+    8.75;
+
+  const centerPlaque =
+    createBox(
+      2.5,
+      1.5,
+      0.35,
+      darkMaterial
+    );
+
+  centerPlaque.position.set(
+    0,
+    7.2,
+    0.68
+  );
+
+  group.add(
+    leftPost,
+    rightPost,
+    lowerBeam,
+    topBeam,
+    cap,
+    centerPlaque
+  );
+
+  group.traverse(
+    (object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
       }
     }
   );
+
+  scene.add(
+    group
+  );
 }
 
-function createMagicParticles(
+function createFestivalDecor(
   scene,
   world
 ) {
-  const particleCount =
-    world.isMobile
-      ? 280
-      : 760;
-
-  const positions =
-    new Float32Array(
-      particleCount * 3
-    );
-
-  const speeds = [];
+  const ropeMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.woodDark,
+      roughness: 0.8
+    });
 
   for (
-    let index = 0;
-    index < particleCount;
-    index += 1
+    const z of [
+      -25.5,
+      25.5
+    ]
   ) {
-    positions[index * 3] =
-      randomRange(
-        index * 1.7,
-        -25,
-        25
+    const rope =
+      createBox(
+        68,
+        0.07,
+        0.07,
+        ropeMaterial
       );
 
-    positions[index * 3 + 1] =
-      randomRange(
-        index * 2.3,
-        0.5,
-        21
+    rope.position.set(
+      0,
+      5.2,
+      z
+    );
+
+    scene.add(
+      rope
+    );
+
+    for (
+      let index = 0;
+      index < 18;
+      index += 1
+    ) {
+      const x =
+        -32 +
+        index *
+          3.8;
+
+      const lantern =
+        createLantern(
+          index
+        );
+
+      lantern.position.set(
+        x,
+        4.3 +
+          Math.sin(
+            index *
+              0.7
+          ) *
+            0.18,
+        z
       );
 
-    positions[index * 3 + 2] =
-      randomRange(
-        index * 3.1,
-        -59,
-        25
+      scene.add(
+        lantern
       );
 
-    speeds.push(
-      0.14 +
-      pseudoRandom(index * 5.7) *
-      0.42
+      world.lanternMaterials.push(
+        lantern.userData
+          .glowMaterial
+      );
+    }
+  }
+
+  for (
+    const x of [
+      -43,
+      43
+    ]
+  ) {
+    for (
+      let index = 0;
+      index < 6;
+      index += 1
+    ) {
+      const banner =
+        createBanner(
+          index % 2 === 0
+            ? COLORS.red
+            : COLORS.blue
+        );
+
+      banner.position.set(
+        x,
+        0,
+        -19 +
+          index *
+            7.5
+      );
+
+      banner.rotation.y =
+        x < 0
+          ? Math.PI / 2
+          : -Math.PI / 2;
+
+      scene.add(
+        banner
+      );
+
+      world.flags.push(
+        banner.userData.flag
+      );
+    }
+  }
+}
+
+function createLantern(index) {
+  const group =
+    new THREE.Group();
+
+  const glowMaterial =
+    new THREE.MeshStandardMaterial({
+      color:
+        index % 3 === 0
+          ? COLORS.red
+          : COLORS.cream,
+
+      emissive:
+        index % 3 === 0
+          ? COLORS.red
+          : COLORS.gold,
+
+      emissiveIntensity: 0.42,
+      roughness: 0.6
+    });
+
+  const lantern =
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.34,
+        0.34,
+        0.8,
+        10
+      ),
+      glowMaterial
+    );
+
+  const capMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.woodDark,
+      roughness: 0.7
+    });
+
+  const top =
+    createBox(
+      0.52,
+      0.1,
+      0.52,
+      capMaterial
+    );
+
+  top.position.y = 0.46;
+
+  const bottom =
+    top.clone();
+
+  bottom.position.y =
+    -0.46;
+
+  group.add(
+    lantern,
+    top,
+    bottom
+  );
+
+  group.userData.glowMaterial =
+    glowMaterial;
+
+  return group;
+}
+
+function createBanner(color) {
+  const group =
+    new THREE.Group();
+
+  const pole =
+    createBox(
+      0.16,
+      5.4,
+      0.16,
+      new THREE.MeshStandardMaterial({
+        color: COLORS.woodDark,
+        roughness: 0.8
+      })
+    );
+
+  pole.position.y = 2.7;
+
+  const flagMaterial =
+    new THREE.MeshStandardMaterial({
+      color,
+      side: THREE.DoubleSide,
+      roughness: 0.76
+    });
+
+  const flag =
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        1.6,
+        2.6,
+        6,
+        4
+      ),
+      flagMaterial
+    );
+
+  flag.position.set(
+    0.88,
+    3.75,
+    0
+  );
+
+  group.add(
+    pole,
+    flag
+  );
+
+  group.userData.flag =
+    flag;
+
+  return group;
+}
+
+function createCherryGarden(scene) {
+  const positions = [
+    [-45, -27, 1.15],
+    [-38, -35, 1.05],
+    [34, -37, 1.2],
+    [44, -28, 1],
+    [-45, 30, 1.1],
+    [43, 29, 1.1],
+    [-35, 31, 0.9],
+    [35, 31, 0.95]
+  ];
+
+  positions.forEach(
+    (
+      [
+        x,
+        z,
+        scale
+      ],
+      index
+    ) => {
+      const tree =
+        createCherryTree(
+          index
+        );
+
+      tree.position.set(
+        x,
+        0,
+        z
+      );
+
+      tree.scale.setScalar(
+        scale
+      );
+
+      scene.add(
+        tree
+      );
+    }
+  );
+}
+
+function createCherryTree(seed) {
+  const group =
+    new THREE.Group();
+
+  const trunkMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.woodDark,
+      roughness: 0.9
+    });
+
+  const trunk =
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        0.62,
+        0.9,
+        6.8,
+        8
+      ),
+      trunkMaterial
+    );
+
+  trunk.position.y = 3.4;
+  trunk.castShadow = true;
+
+  group.add(
+    trunk
+  );
+
+  for (
+    let branch = 0;
+    branch < 4;
+    branch += 1
+  ) {
+    const limb =
+      new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          0.24,
+          0.42,
+          4.4,
+          7
+        ),
+        trunkMaterial
+      );
+
+    limb.position.set(
+      Math.cos(
+        branch *
+          Math.PI /
+          2
+      ) *
+        1.35,
+
+      6.25,
+
+      Math.sin(
+        branch *
+          Math.PI /
+          2
+      ) *
+        1.35
+    );
+
+    limb.rotation.z =
+      Math.PI / 3.25;
+
+    limb.rotation.y =
+      branch *
+      Math.PI /
+      2;
+
+    limb.castShadow = true;
+
+    group.add(
+      limb
     );
   }
 
-  const geometry =
-    new THREE.BufferGeometry();
+  const blossomMaterials = [
+    new THREE.MeshStandardMaterial({
+      color: COLORS.cherry,
+      roughness: 0.86
+    }),
 
-  geometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(
-      positions,
-      3
-    )
-  );
+    new THREE.MeshStandardMaterial({
+      color: COLORS.cherryLight,
+      roughness: 0.86
+    }),
 
-  const material =
-    new THREE.PointsMaterial({
-      color: COLORS.purpleLight,
+    new THREE.MeshStandardMaterial({
+      color: 0xe98cab,
+      roughness: 0.86
+    })
+  ];
 
-      size:
-        world.isMobile
-          ? 0.085
-          : 0.1,
+  const clusters = 11;
 
-      transparent: true,
-      opacity: 0.78,
+  for (
+    let index = 0;
+    index < clusters;
+    index += 1
+  ) {
+    const angle =
+      index *
+        2.399 +
+      seed;
 
-      depthWrite: false,
+    const radius =
+      index < 3
+        ? 1.4
+        : 2.5 +
+          pseudoRandom(
+            seed *
+              30 +
+              index
+          ) *
+            2.2;
 
-      blending:
-        THREE.AdditiveBlending,
+    const blossom =
+      new THREE.Mesh(
+        new THREE.IcosahedronGeometry(
+          1.7 +
+            pseudoRandom(
+              index +
+                seed
+            ) *
+              0.8,
+          1
+        ),
+        blossomMaterials[
+          index %
+            blossomMaterials.length
+        ]
+      );
 
-      sizeAttenuation: true
-    });
+    blossom.position.set(
+      Math.cos(
+        angle
+      ) *
+        radius,
 
-  const particles =
-    new THREE.Points(
-      geometry,
-      material
+      6.6 +
+        pseudoRandom(
+          seed +
+            index *
+              2.7
+        ) *
+          3.1,
+
+      Math.sin(
+        angle
+      ) *
+        radius
     );
 
-  scene.add(particles);
+    blossom.rotation.set(
+      angle *
+        0.2,
+      angle,
+      angle *
+        0.35
+    );
 
-  world.magicParticles =
-    particles;
+    blossom.castShadow = true;
+    blossom.receiveShadow = true;
 
-  world.magicPositions =
-    positions;
+    group.add(
+      blossom
+    );
+  }
 
-  world.magicSpeeds =
-    speeds;
+  return group;
 }
 
-function createShadowParticles(
+function createPagoda(scene) {
+  const group =
+    new THREE.Group();
+
+  group.position.set(
+    34,
+    0,
+    -45
+  );
+
+  const wallMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.cream,
+      roughness: 0.84
+    });
+
+  const roofMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.redDark,
+      roughness: 0.68
+    });
+
+  for (
+    let level = 0;
+    level < 3;
+    level += 1
+  ) {
+    const y =
+      level *
+      3.3;
+
+    const width =
+      7.8 -
+      level *
+        1.35;
+
+    const body =
+      createBox(
+        width *
+          0.64,
+        2.7,
+        width *
+          0.64,
+        wallMaterial
+      );
+
+    body.position.y =
+      y +
+      1.35;
+
+    group.add(
+      body
+    );
+
+    const roof =
+      new THREE.Mesh(
+        new THREE.CylinderGeometry(
+          width *
+            0.72,
+          width,
+          1.15,
+          4
+        ),
+        roofMaterial
+      );
+
+    roof.rotation.y =
+      Math.PI / 4;
+
+    roof.position.y =
+      y +
+      3;
+
+    roof.castShadow = true;
+
+    group.add(
+      roof
+    );
+  }
+
+  const finial =
+    new THREE.Mesh(
+      new THREE.ConeGeometry(
+        0.45,
+        2.6,
+        8
+      ),
+      new THREE.MeshStandardMaterial({
+        color: COLORS.gold,
+        roughness: 0.5
+      })
+    );
+
+  finial.position.y =
+    11.4;
+
+  group.add(
+    finial
+  );
+
+  group.traverse(
+    (object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    }
+  );
+
+  scene.add(
+    group
+  );
+}
+
+function createBoundary(scene) {
+  const wallMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.cream,
+      roughness: 0.92
+    });
+
+  const redMaterial =
+    new THREE.MeshStandardMaterial({
+      color: COLORS.red,
+      roughness: 0.72
+    });
+
+  for (
+    const z of [
+      -47.5,
+      47.5
+    ]
+  ) {
+    const wall =
+      createBox(
+        100,
+        1.2,
+        0.8,
+        wallMaterial
+      );
+
+    wall.position.set(
+      0,
+      0.6,
+      z
+    );
+
+    scene.add(
+      wall
+    );
+
+    const rail =
+      createBox(
+        100,
+        0.24,
+        0.24,
+        redMaterial
+      );
+
+    rail.position.set(
+      0,
+      2.35,
+      z
+    );
+
+    scene.add(
+      rail
+    );
+
+    for (
+      let x = -48;
+      x <= 48;
+      x += 4
+    ) {
+      const post =
+        createBox(
+          0.24,
+          2.5,
+          0.24,
+          redMaterial
+        );
+
+      post.position.set(
+        x,
+        1.25,
+        z
+      );
+
+      scene.add(
+        post
+      );
+    }
+  }
+
+  for (
+    const x of [
+      -50.5,
+      50.5
+    ]
+  ) {
+    const wall =
+      createBox(
+        0.8,
+        1.2,
+        94,
+        wallMaterial
+      );
+
+    wall.position.set(
+      x,
+      0.6,
+      0
+    );
+
+    scene.add(
+      wall
+    );
+
+    const rail =
+      createBox(
+        0.24,
+        0.24,
+        94,
+        redMaterial
+      );
+
+    rail.position.set(
+      x,
+      2.35,
+      0
+    );
+
+    scene.add(
+      rail
+    );
+
+    for (
+      let z = -44;
+      z <= 44;
+      z += 4
+    ) {
+      const post =
+        createBox(
+          0.24,
+          2.5,
+          0.24,
+          redMaterial
+        );
+
+      post.position.set(
+        x,
+        1.25,
+        z
+      );
+
+      scene.add(
+        post
+      );
+    }
+  }
+}
+
+function createPetals(
   scene,
   world
 ) {
-  const particleCount =
+  const count =
     world.isMobile
-      ? 90
-      : 220;
+      ? 280
+      : 560;
 
   const positions =
     new Float32Array(
-      particleCount * 3
+      count *
+        3
     );
 
   const speeds = [];
 
   for (
     let index = 0;
-    index < particleCount;
+    index < count;
     index += 1
   ) {
-    positions[index * 3] =
+    positions[
+      index *
+        3
+    ] =
       randomRange(
-        index * 2.4,
-        -10,
-        10
+        index *
+          2.1,
+        -50,
+        50
       );
 
-    positions[index * 3 + 1] =
+    positions[
+      index *
+        3 +
+        1
+    ] =
       randomRange(
-        index * 4.1,
+        index *
+          3.7,
         1,
         18
       );
 
-    positions[index * 3 + 2] =
+    positions[
+      index *
+        3 +
+        2
+    ] =
       randomRange(
-        index * 6.3,
-        -56,
-        -44
+        index *
+          5.3,
+        -35,
+        35
       );
 
     speeds.push(
-      0.08 +
-      pseudoRandom(index * 8.1) *
-      0.24
+      randomRange(
+        index *
+          7.1,
+        0.35,
+        0.95
+      )
     );
   }
 
@@ -1592,40 +2282,115 @@ function createShadowParticles(
 
   const material =
     new THREE.PointsMaterial({
-      color: 0x1a102f,
-
+      color: COLORS.cherryLight,
       size:
         world.isMobile
-          ? 0.25
-          : 0.35,
-
+          ? 0.18
+          : 0.22,
       transparent: true,
-      opacity: 0.52,
-
+      opacity: 0.72,
       depthWrite: false,
-
-      blending:
-        THREE.NormalBlending,
-
       sizeAttenuation: true
     });
 
-  const particles =
+  const petals =
     new THREE.Points(
       geometry,
       material
     );
 
-  scene.add(particles);
+  scene.add(
+    petals
+  );
 
-  world.shadowParticles =
-    particles;
+  world.petals =
+    petals;
 
-  world.shadowPositions =
+  world.petalPositions =
     positions;
 
-  world.shadowSpeeds =
+  world.petalSpeeds =
     speeds;
+}
+
+function createClouds(
+  scene,
+  world
+) {
+  const cloudMaterial =
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.36,
+      depthWrite: false
+    });
+
+  for (
+    let index = 0;
+    index < 5;
+    index += 1
+  ) {
+    const group =
+      new THREE.Group();
+
+    group.position.set(
+      -80 +
+        index *
+          38,
+      35 +
+        index *
+          2.5,
+      -70 +
+        index *
+          12
+    );
+
+    for (
+      let puff = 0;
+      puff < 5;
+      puff += 1
+    ) {
+      const cloud =
+        new THREE.Mesh(
+          new THREE.SphereGeometry(
+            5 +
+              pseudoRandom(
+                index +
+                  puff
+              ) *
+                3,
+            12,
+            8
+          ),
+          cloudMaterial
+        );
+
+      cloud.scale.y =
+        0.48;
+
+      cloud.position.x =
+        puff *
+        5.5;
+
+      cloud.position.y =
+        Math.sin(
+          puff
+        ) *
+        1.2;
+
+      group.add(
+        cloud
+      );
+    }
+
+    scene.add(
+      group
+    );
+
+    world.cloudGroups.push(
+      group
+    );
+  }
 }
 
 export function updateWorld(
@@ -1633,433 +2398,267 @@ export function updateWorld(
   deltaTime,
   elapsedTime
 ) {
-  updateRuneMaterials(
-    world,
-    elapsedTime
-  );
-
-  updateMagicLights(
-    world,
-    elapsedTime
-  );
-
-  updateAltar(
-    world,
-    elapsedTime
-  );
-
-  updatePortal(
+  updatePetals(
     world,
     deltaTime,
     elapsedTime
   );
 
-  updateFloatingStones(
+  updateFlags(
     world,
-    deltaTime,
     elapsedTime
   );
 
-  updateMagicParticles(
+  updateLanterns(
     world,
-    deltaTime,
     elapsedTime
   );
 
-  updateShadowParticles(
+  updateClouds(
     world,
-    deltaTime,
-    elapsedTime
-  );
-
-  updateThroneAura(
-    world,
-    elapsedTime
+    deltaTime
   );
 }
 
-function updateRuneMaterials(
+function updatePetals(
   world,
+  deltaTime,
   elapsedTime
 ) {
-  world.runeMaterials.forEach(
-    (material, index) => {
-      material.emissiveIntensity =
-        1.9 +
-        Math.sin(
-          elapsedTime * 1.8 +
+  if (
+    !world.petals ||
+    !world.petalPositions
+  ) {
+    return;
+  }
+
+  const positions =
+    world.petalPositions;
+
+  const count =
+    positions.length /
+    3;
+
+  for (
+    let index = 0;
+    index < count;
+    index += 1
+  ) {
+    const xIndex =
+      index *
+      3;
+
+    const yIndex =
+      xIndex +
+      1;
+
+    const zIndex =
+      xIndex +
+      2;
+
+    positions[yIndex] -=
+      world.petalSpeeds[index] *
+      deltaTime;
+
+    positions[xIndex] +=
+      Math.sin(
+        elapsedTime *
+          0.8 +
           index
-        ) *
-        0.38;
-    }
-  );
-}
-
-function updateMagicLights(
-  world,
-  elapsedTime
-) {
-  world.magicLights.forEach(
-    (light, index) => {
-      const baseIntensity =
-        world.isMobile
-          ? 28
-          : 44;
-
-      light.intensity =
-        baseIntensity +
-        Math.sin(
-          elapsedTime *
-          (2.1 + index * 0.37)
-        ) *
-        4 +
-        Math.sin(
-          elapsedTime *
-          (5.3 + index * 0.21)
-        ) *
-        1.5;
-    }
-  );
-}
-
-function updateAltar(
-  world,
-  elapsedTime
-) {
-  if (!world.altarCore) {
-    return;
-  }
-
-  world.altarCore.rotation.y =
-    elapsedTime * 0.75;
-
-  world.altarCore.rotation.x =
-    Math.sin(
-      elapsedTime * 0.8
-    ) * 0.18;
-
-  world.altarCore.position.y =
-    5 +
-    Math.sin(
-      elapsedTime * 1.6
-    ) *
-    0.22;
-
-  const scale =
-    1 +
-    Math.sin(
-      elapsedTime * 2.3
-    ) *
-    0.06;
-
-  world.altarCore.scale.setScalar(
-    scale
-  );
-}
-
-function updatePortal(
-  world,
-  deltaTime,
-  elapsedTime
-) {
-  if (world.portalRing) {
-    world.portalRing.rotation.z +=
-      deltaTime * 0.12;
-
-    const scale =
-      1 +
-      Math.sin(
-        elapsedTime * 1.35
-      ) *
-      0.035;
-
-    world.portalRing.scale.setScalar(
-      scale
-    );
-  }
-
-  if (world.portalCore) {
-    world.portalCore.rotation.z -=
-      deltaTime * 0.2;
-
-    const scale =
-      1 +
-      Math.sin(
-        elapsedTime * 1.7
-      ) *
-      0.025;
-
-    world.portalCore.scale.setScalar(
-      scale
-    );
-  }
-
-  world.portalMaterials.forEach(
-    (material, index) => {
-      if (
-        typeof material.opacity !==
-        "number"
-      ) {
-        return;
-      }
-
-      material.opacity =
-        Math.max(
-          0.16,
-          Math.min(
-            0.9,
-            material.opacity +
-              Math.sin(
-                elapsedTime *
-                (1.4 + index * 0.2)
-              ) *
-              0.0008
-          )
-        );
-    }
-  );
-}
-
-function updateFloatingStones(
-  world,
-  deltaTime,
-  elapsedTime
-) {
-  world.floatingStones.forEach(
-    (stone) => {
-      const {
-        baseY,
-        floatSpeed,
-        floatOffset,
-        rotateSpeed
-      } = stone.userData;
-
-      stone.position.y =
-        baseY +
-        Math.sin(
-          elapsedTime *
-          floatSpeed +
-          floatOffset
-        ) *
-        0.65;
-
-      stone.rotation.x +=
-        deltaTime *
-        rotateSpeed;
-
-      stone.rotation.y +=
-        deltaTime *
-        rotateSpeed *
-        0.75;
-    }
-  );
-}
-
-function updateMagicParticles(
-  world,
-  deltaTime,
-  elapsedTime
-) {
-  if (
-    !world.magicParticles ||
-    !world.magicPositions
-  ) {
-    return;
-  }
-
-  const positions =
-    world.magicPositions;
-
-  for (
-    let index = 0;
-    index < world.magicSpeeds.length;
-    index += 1
-  ) {
-    const xIndex =
-      index * 3;
-
-    const yIndex =
-      index * 3 + 1;
-
-    const zIndex =
-      index * 3 + 2;
-
-    positions[yIndex] +=
-      world.magicSpeeds[index] *
-      deltaTime;
-
-    positions[xIndex] +=
-      Math.sin(
-        elapsedTime * 0.6 +
-        index
       ) *
       deltaTime *
-      0.055;
-
-    if (positions[yIndex] > 23) {
-      positions[yIndex] = 0.4;
-
-      positions[xIndex] =
-        randomRange(
-          index * 12.4 +
-          elapsedTime,
-          -25,
-          25
-        );
-
-      positions[zIndex] =
-        randomRange(
-          index * 14.7 +
-          elapsedTime,
-          -59,
-          25
-        );
-    }
-  }
-
-  world.magicParticles
-    .geometry
-    .attributes
-    .position
-    .needsUpdate = true;
-}
-
-function updateShadowParticles(
-  world,
-  deltaTime,
-  elapsedTime
-) {
-  if (
-    !world.shadowParticles ||
-    !world.shadowPositions
-  ) {
-    return;
-  }
-
-  const positions =
-    world.shadowPositions;
-
-  for (
-    let index = 0;
-    index < world.shadowSpeeds.length;
-    index += 1
-  ) {
-    const xIndex =
-      index * 3;
-
-    const yIndex =
-      index * 3 + 1;
-
-    const zIndex =
-      index * 3 + 2;
-
-    positions[yIndex] +=
-      world.shadowSpeeds[index] *
-      deltaTime;
-
-    positions[xIndex] +=
-      Math.sin(
-        elapsedTime * 0.8 +
-        index * 0.6
-      ) *
-      deltaTime *
-      0.12;
+      0.45;
 
     positions[zIndex] +=
       Math.cos(
-        elapsedTime * 0.5 +
-        index
+        elapsedTime *
+          0.55 +
+          index *
+            0.7
       ) *
       deltaTime *
-      0.04;
+      0.22;
 
-    if (positions[yIndex] > 20) {
-      positions[yIndex] = 0.5;
+    if (
+      positions[yIndex] <
+      0.8
+    ) {
+      positions[yIndex] =
+        randomRange(
+          index *
+            4.2 +
+            elapsedTime,
+          12,
+          22
+        );
 
       positions[xIndex] =
         randomRange(
-          index * 18 +
-          elapsedTime,
-          -10,
-          10
+          index *
+            6.1 +
+            elapsedTime,
+          -50,
+          50
         );
 
       positions[zIndex] =
         randomRange(
-          index * 22 +
-          elapsedTime,
-          -56,
-          -44
+          index *
+            8.3 +
+            elapsedTime,
+          -35,
+          35
         );
     }
   }
 
-  world.shadowParticles
-    .geometry
+  world.petals.geometry
     .attributes
     .position
     .needsUpdate = true;
 }
 
-function updateThroneAura(
+function updateFlags(
   world,
   elapsedTime
 ) {
-  if (!world.throneAura) {
-    return;
-  }
+  world.flags.forEach(
+    (
+      flag,
+      index
+    ) => {
+      const positions =
+        flag.geometry
+          .attributes
+          .position;
 
-  world.throneAura.material.opacity =
-    0.14 +
-    Math.sin(
-      elapsedTime * 1.3
-    ) *
-    0.045;
+      for (
+        let vertex = 0;
+        vertex < positions.count;
+        vertex += 1
+      ) {
+        const x =
+          positions.getX(
+            vertex
+          );
 
-  const scale =
-    1 +
-    Math.sin(
-      elapsedTime * 0.9
-    ) *
-    0.025;
+        positions.setZ(
+          vertex,
+          Math.sin(
+            elapsedTime *
+              2.2 +
+              index +
+              x *
+                2.7
+          ) *
+            0.08 *
+            (
+              x +
+              0.8
+            )
+        );
+      }
 
-  world.throneAura.scale.set(
-    scale,
-    scale,
-    1
+      positions.needsUpdate =
+        true;
+
+      flag.geometry
+        .computeVertexNormals();
+    }
   );
 }
 
-function createStoneMaterial(
-  color
+function updateLanterns(
+  world,
+  elapsedTime
 ) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.9,
-    metalness: 0.04,
-    flatShading: true
-  });
+  world.lanternMaterials.forEach(
+    (
+      material,
+      index
+    ) => {
+      material.emissiveIntensity =
+        0.36 +
+        Math.sin(
+          elapsedTime *
+            2.4 +
+            index
+        ) *
+          0.08;
+    }
+  );
+}
+
+function updateClouds(
+  world,
+  deltaTime
+) {
+  world.cloudGroups.forEach(
+    (
+      cloud,
+      index
+    ) => {
+      cloud.position.x +=
+        deltaTime *
+        (
+          0.35 +
+          index *
+            0.05
+        );
+
+      if (
+        cloud.position.x >
+        105
+      ) {
+        cloud.position.x =
+          -105;
+      }
+    }
+  );
+}
+
+function createBox(
+  width,
+  height,
+  depth,
+  material
+) {
+  return new THREE.Mesh(
+    new THREE.BoxGeometry(
+      width,
+      height,
+      depth
+    ),
+    material
+  );
 }
 
 function pseudoRandom(seed) {
   const value =
     Math.sin(
-      seed * 12.9898
+      seed *
+        12.9898 +
+        78.233
     ) *
     43758.5453;
 
   return value -
-    Math.floor(value);
+    Math.floor(
+      value
+    );
 }
 
 function randomRange(
   seed,
-  minimum,
-  maximum
+  min,
+  max
 ) {
-  return (
-    minimum +
-    pseudoRandom(seed) *
-    (maximum - minimum)
-  );
+  return min +
+    pseudoRandom(
+      seed
+    ) *
+      (
+        max -
+        min
+      );
 }
