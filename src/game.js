@@ -13,7 +13,8 @@ import {
 import {
   createTeams,
   updateTeams,
-  resetTeams
+  resetTeams,
+  setKickoffPossession
 } from "./player.js";
 
 import {
@@ -56,17 +57,6 @@ export class Game {
         300
       );
 
-    this.camera.position.set(
-      45,
-      42,
-      50
-    );
-
-    /*
-     * 固定斜俯視鏡頭偏移。
-     * 攝影機和跟隨目標會同步平移，
-     * 不再因為 target 改變而旋轉晃動。
-     */
     this.cameraOffset =
       new THREE.Vector3(
         45,
@@ -74,25 +64,17 @@ export class Game {
         50
       );
 
-    /*
-     * 實際使用的平滑跟隨中心。
-     */
     this.cameraFollowTarget =
-      new THREE.Vector3(
-        0,
-        0,
-        0
-      );
+      new THREE.Vector3();
 
-    /*
-     * 相機安全區。
-     * 足球在安全區內移動時，相機不移動；
-     * 超出安全區後才開始平移。
-     */
     this.cameraDeadZone = {
-      x: 4.5,
-      z: 2.8
+      x: 6,
+      z: 4
     };
+
+    this.camera.position.copy(
+      this.cameraOffset
+    );
 
     this.renderer =
       new THREE.WebGLRenderer({
@@ -107,7 +89,7 @@ export class Game {
       Math.min(
         window.devicePixelRatio,
         this.isTouchDevice
-          ? 1.35
+          ? 1.3
           : 2
       )
     );
@@ -151,10 +133,6 @@ export class Game {
     this.controls.enableDamping =
       false;
 
-    /*
-     * 正式比賽鏡頭固定角度。
-     * 關閉旋轉與平移，只保留縮放。
-     */
     this.controls.enableRotate =
       false;
 
@@ -165,13 +143,13 @@ export class Game {
       true;
 
     this.controls.minZoom =
-      0.8;
+      0.85;
 
     this.controls.maxZoom =
-      2.2;
+      2.1;
 
     this.controls.zoomSpeed =
-      0.8;
+      0.75;
 
     this.controls.update();
 
@@ -186,6 +164,9 @@ export class Game {
 
     this.resetTimer =
       0;
+
+    this.nextKickoffTeam =
+      "red";
 
     this.ui =
       new MatchUI();
@@ -233,9 +214,22 @@ export class Game {
 
     this.teams =
       createTeams(
-        this.scene,
-        this.world
+        this.scene
       );
+
+    resetBall(
+      this.world
+    );
+
+    resetTeams(
+      this.teams
+    );
+
+    setKickoffPossession(
+      this.teams,
+      this.world,
+      "red"
+    );
 
     this.setupInterface();
     this.handleResize();
@@ -268,8 +262,28 @@ export class Game {
         event.preventDefault();
         event.stopPropagation();
 
+        resetBall(
+          this.world
+        );
+
+        resetTeams(
+          this.teams
+        );
+
+        setKickoffPossession(
+          this.teams,
+          this.world,
+          "red"
+        );
+
         this.hasStarted =
           true;
+
+        this.isResetting =
+          false;
+
+        this.resetTimer =
+          0;
 
         this.startScreen?.classList.add(
           "hidden"
@@ -280,6 +294,11 @@ export class Game {
         );
 
         this.ui.reset();
+
+        this.ui.setPossession(
+          "red"
+        );
+
         this.resetCamera();
       }
     );
@@ -299,16 +318,16 @@ export class Game {
       0
     );
 
-    this.controls.target.copy(
-      this.cameraFollowTarget
-    );
-
     this.camera.position.copy(
       this.cameraFollowTarget
     );
 
     this.camera.position.add(
       this.cameraOffset
+    );
+
+    this.controls.target.copy(
+      this.cameraFollowTarget
     );
 
     this.camera.zoom =
@@ -326,12 +345,26 @@ export class Game {
     if (
       !this.hasStarted
     ) {
+      updateWorld(
+        this.world,
+        deltaTime,
+        elapsedTime,
+        false
+      );
+
       return;
     }
 
     if (
       this.isResetting
     ) {
+      updateWorld(
+        this.world,
+        deltaTime,
+        elapsedTime,
+        false
+      );
+
       this.resetTimer -=
         deltaTime;
 
@@ -346,12 +379,22 @@ export class Game {
           this.teams
         );
 
-        this.isResetting =
-          false;
+        setKickoffPossession(
+          this.teams,
+          this.world,
+          this.nextKickoffTeam
+        );
+
+        this.ui.setPossession(
+          this.nextKickoffTeam
+        );
 
         this.ui.setStatus(
           "比賽進行中"
         );
+
+        this.isResetting =
+          false;
       }
 
       return;
@@ -368,8 +411,20 @@ export class Game {
       updateWorld(
         this.world,
         deltaTime,
-        elapsedTime
+        elapsedTime,
+        true
       );
+
+    const possessionTeam =
+      this.world
+        .ballState
+        .owner
+        ?.team ??
+      null;
+
+    this.ui.setPossession(
+      possessionTeam
+    );
 
     if (goal) {
       this.ui.addGoal(
@@ -382,11 +437,16 @@ export class Game {
           : "蒼月得分"
       );
 
+      this.nextKickoffTeam =
+        goal === "red"
+          ? "blue"
+          : "red";
+
       this.isResetting =
         true;
 
       this.resetTimer =
-        1.8;
+        1.6;
     }
 
     this.ui.updateClock(
@@ -394,32 +454,34 @@ export class Game {
     );
   }
 
-  updateCamera(deltaTime) {
+  updateCamera(
+    deltaTime
+  ) {
     if (
       !this.world?.ball
     ) {
       return;
     }
 
-    const ballPosition =
+    const focus =
+      this.world
+        .ballState
+        .owner
+        ?.position ??
       this.world.ball.position;
 
-    /*
-     * 限制相機跟隨範圍，
-     * 避免看到球場外過多區域。
-     */
     const ballTargetX =
       THREE.MathUtils.clamp(
-        ballPosition.x,
-        -20,
-        20
+        focus.x,
+        -21,
+        21
       );
 
     const ballTargetZ =
       THREE.MathUtils.clamp(
-        ballPosition.z,
-        -9,
-        9
+        focus.z,
+        -10,
+        10
       );
 
     const differenceX =
@@ -433,10 +495,6 @@ export class Game {
     const desiredTarget =
       this.cameraFollowTarget.clone();
 
-    /*
-     * 足球超出橫向安全區後，
-     * 相機才開始橫向移動。
-     */
     if (
       Math.abs(
         differenceX
@@ -451,10 +509,6 @@ export class Game {
         this.cameraDeadZone.x;
     }
 
-    /*
-     * 足球超出縱向安全區後，
-     * 相機才開始縱向移動。
-     */
     if (
       Math.abs(
         differenceZ
@@ -479,18 +533,14 @@ export class Game {
     desiredTarget.z =
       THREE.MathUtils.clamp(
         desiredTarget.z,
-        -7,
-        7
+        -6,
+        6
       );
 
-    /*
-     * 使用較慢的平滑速度，
-     * 避免足球快速傳遞時造成鏡頭突然移動。
-     */
     const smoothing =
       1 -
       Math.exp(
-        -2.2 *
+        -1.7 *
         deltaTime
       );
 
@@ -499,19 +549,12 @@ export class Game {
       smoothing
     );
 
-    /*
-     * 相機和 target 使用相同跟隨中心。
-     * 兩者保持固定偏移，因此鏡頭不會旋轉。
-     */
-    const desiredCameraPosition =
-      this.cameraFollowTarget
-        .clone()
-        .add(
-          this.cameraOffset
-        );
-
     this.camera.position.copy(
-      desiredCameraPosition
+      this.cameraFollowTarget
+    );
+
+    this.camera.position.add(
+      this.cameraOffset
     );
 
     this.controls.target.copy(
@@ -568,11 +611,6 @@ export class Game {
     if (
       this.isTouchDevice
     ) {
-      /*
-       * 手機直向：
-       * 顯示較大的縱向範圍，
-       * 但不強制看到完整球場。
-       */
       verticalSize =
         aspect < 0.85
           ? 39
@@ -580,7 +618,7 @@ export class Game {
     } else {
       verticalSize =
         aspect < 0.85
-          ? 46
+          ? 45
           : 37;
     }
 
@@ -589,20 +627,16 @@ export class Game {
       aspect;
 
     this.camera.left =
-      -horizontalSize /
-      2;
+      -horizontalSize / 2;
 
     this.camera.right =
-      horizontalSize /
-      2;
+      horizontalSize / 2;
 
     this.camera.top =
-      verticalSize /
-      2;
+      verticalSize / 2;
 
     this.camera.bottom =
-      -verticalSize /
-      2;
+      -verticalSize / 2;
 
     this.camera.updateProjectionMatrix();
 
@@ -615,7 +649,7 @@ export class Game {
       Math.min(
         window.devicePixelRatio,
         this.isTouchDevice
-          ? 1.35
+          ? 1.3
           : 2
       )
     );
