@@ -1,12 +1,8 @@
 import * as THREE from "three";
 
 import {
-  PointerLockControls
-} from "three/addons/controls/PointerLockControls.js";
-
-import {
-  InputController
-} from "./input.js";
+  OrbitControls
+} from "three/addons/controls/OrbitControls.js";
 
 import {
   createWorld,
@@ -16,47 +12,54 @@ import {
 export class Game {
   constructor(container) {
     this.container = container;
-
     this.clock = new THREE.Clock();
+
+    this.isTouchDevice =
+      window.matchMedia(
+        "(pointer: coarse)"
+      ).matches ||
+      navigator.maxTouchPoints > 0;
 
     this.scene = new THREE.Scene();
 
     this.scene.background =
-      new THREE.Color(0x080d16);
+      new THREE.Color(0xcfe8ee);
 
     this.scene.fog =
-      new THREE.FogExp2(
-        0x0b1018,
-        0.018
+      new THREE.Fog(
+        0xcfe8ee,
+        90,
+        180
       );
 
+    this.viewSize = 60;
+
     this.camera =
-      new THREE.PerspectiveCamera(
-        65,
-        window.innerWidth /
-          window.innerHeight,
+      new THREE.OrthographicCamera(
+        -1,
+        1,
+        1,
+        -1,
         0.1,
-        500
+        300
       );
 
     this.camera.position.set(
-      0,
-      2.2,
-      30
+      58,
+      54,
+      66
     );
-
-    this.camera.rotation.order = "YXZ";
 
     this.renderer =
       new THREE.WebGLRenderer({
-        antialias: true,
+        antialias: !this.isTouchDevice,
         powerPreference: "high-performance"
       });
 
     this.renderer.setPixelRatio(
       Math.min(
         window.devicePixelRatio,
-        2
+        this.isTouchDevice ? 1.5 : 2
       )
     );
 
@@ -84,51 +87,47 @@ export class Game {
     );
 
     this.controls =
-      new PointerLockControls(
+      new OrbitControls(
         this.camera,
         this.renderer.domElement
       );
 
-    this.input =
-      new InputController();
+    this.controls.target.set(
+      0,
+      0,
+      0
+    );
+
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.08;
+
+    this.controls.enablePan = false;
+    this.controls.enableRotate = true;
+    this.controls.enableZoom = true;
+
+    this.controls.minZoom = 0.72;
+    this.controls.maxZoom = 1.8;
+
+    this.controls.minPolarAngle =
+      THREE.MathUtils.degToRad(38);
+
+    this.controls.maxPolarAngle =
+      THREE.MathUtils.degToRad(68);
+
+    this.controls.minAzimuthAngle =
+      THREE.MathUtils.degToRad(-125);
+
+    this.controls.maxAzimuthAngle =
+      THREE.MathUtils.degToRad(125);
+
+    this.controls.update();
 
     this.world = null;
-
-    this.velocity =
-      new THREE.Vector3();
-
-    this.direction =
-      new THREE.Vector3();
-
-    this.normalSpeed = 7;
-    this.sprintSpeed = 13;
-
-    this.playerHeight = 2.2;
-
-    this.isTouchDevice =
-      window.matchMedia(
-        "(pointer: coarse)"
-      ).matches ||
-      navigator.maxTouchPoints > 0;
-
     this.hasEnteredScene = false;
-
-    this.mobileLook = {
-      active: false,
-      touchIdentifier: null,
-      previousX: 0,
-      previousY: 0,
-      sensitivity: 0.004
-    };
 
     this.startScreen =
       document.querySelector(
         "#start-screen"
-      );
-
-    this.pauseScreen =
-      document.querySelector(
-        "#pause-screen"
       );
 
     this.startButton =
@@ -163,10 +162,16 @@ export class Game {
 
   start() {
     this.world =
-      createWorld(this.scene);
+      createWorld(
+        this.scene,
+        {
+          isMobile: this.isTouchDevice
+        }
+      );
 
-    this.setupControls();
+    this.setupInterface();
     this.updateControlInstructions();
+    this.handleResize();
 
     window.addEventListener(
       "resize",
@@ -188,7 +193,7 @@ export class Game {
     );
   }
 
-  setupControls() {
+  setupInterface() {
     this.startButton?.addEventListener(
       "click",
       (event) => {
@@ -199,70 +204,18 @@ export class Game {
       }
     );
 
-    this.pauseScreen?.addEventListener(
-      "click",
-      (event) => {
-        event.preventDefault();
-
-        this.resumeScene();
-      }
-    );
-
-    this.controls.addEventListener(
-      "lock",
+    this.renderer.domElement.addEventListener(
+      "dblclick",
       () => {
-        this.hasEnteredScene = true;
-
-        this.showGameView();
+        this.resetCamera();
       }
     );
-
-    this.controls.addEventListener(
-      "unlock",
-      () => {
-        if (this.isTouchDevice) {
-          return;
-        }
-
-        if (!this.hasEnteredScene) {
-          return;
-        }
-
-        this.showPauseView();
-      }
-    );
-
-    if (this.isTouchDevice) {
-      this.setupTouchLook();
-    }
   }
 
   enterScene() {
     this.hasEnteredScene = true;
 
-    if (this.isTouchDevice) {
-      this.showGameView();
-      return;
-    }
-
-    this.controls.lock();
-  }
-
-  resumeScene() {
-    if (this.isTouchDevice) {
-      this.showGameView();
-      return;
-    }
-
-    this.controls.lock();
-  }
-
-  showGameView() {
     this.startScreen?.classList.add(
-      "hidden"
-    );
-
-    this.pauseScreen?.classList.add(
       "hidden"
     );
 
@@ -271,328 +224,49 @@ export class Game {
     );
   }
 
-  showPauseView() {
-    this.pauseScreen?.classList.remove(
-      "hidden"
-    );
-
-    this.hud?.classList.add(
-      "hidden"
-    );
-  }
-
   updateControlInstructions() {
-    if (!this.isTouchDevice) {
-      return;
-    }
+    if (this.isTouchDevice) {
+      if (this.controlsInfo) {
+        this.controlsInfo.innerHTML = `
+          <span>單指拖曳旋轉</span>
+          <span>雙指縮放</span>
+          <span>橫向建議</span>
+          <span>純場景展示</span>
+        `;
+      }
 
-    if (this.controlsInfo) {
-      this.controlsInfo.innerHTML = `
-        <span>單指拖曳</span>
-        <span>旋轉視角</span>
-        <span>橫向遊玩</span>
-        <span>場景展示模式</span>
-      `;
+      if (this.hint) {
+        this.hint.textContent =
+          "單指拖曳視角 · 雙指縮放";
+      }
+
+      return;
     }
 
     if (this.hint) {
       this.hint.textContent =
-        "單指拖曳畫面旋轉視角";
+        "拖曳旋轉 · 滾輪縮放 · 雙擊重置";
     }
   }
 
-  setupTouchLook() {
-    const canvas =
-      this.renderer.domElement;
-
-    canvas.addEventListener(
-      "touchstart",
-      (event) => {
-        if (!this.hasEnteredScene) {
-          return;
-        }
-
-        if (
-          !this.startScreen?.classList.contains(
-            "hidden"
-          )
-        ) {
-          return;
-        }
-
-        if (event.touches.length !== 1) {
-          this.stopTouchLook();
-          return;
-        }
-
-        const touch =
-          event.touches[0];
-
-        this.mobileLook.active = true;
-
-        this.mobileLook.touchIdentifier =
-          touch.identifier;
-
-        this.mobileLook.previousX =
-          touch.clientX;
-
-        this.mobileLook.previousY =
-          touch.clientY;
-      },
-      {
-        passive: true
-      }
+  resetCamera() {
+    this.camera.position.set(
+      58,
+      54,
+      66
     );
 
-    canvas.addEventListener(
-      "touchmove",
-      (event) => {
-        if (!this.mobileLook.active) {
-          return;
-        }
+    this.camera.zoom = 1;
 
-        const touch =
-          this.findActiveTouch(
-            event.touches
-          );
+    this.camera.updateProjectionMatrix();
 
-        if (!touch) {
-          this.stopTouchLook();
-          return;
-        }
-
-        event.preventDefault();
-
-        const deltaX =
-          touch.clientX -
-          this.mobileLook.previousX;
-
-        const deltaY =
-          touch.clientY -
-          this.mobileLook.previousY;
-
-        this.mobileLook.previousX =
-          touch.clientX;
-
-        this.mobileLook.previousY =
-          touch.clientY;
-
-        this.camera.rotation.y -=
-          deltaX *
-          this.mobileLook.sensitivity;
-
-        this.camera.rotation.x -=
-          deltaY *
-          this.mobileLook.sensitivity;
-
-        this.camera.rotation.x =
-          THREE.MathUtils.clamp(
-            this.camera.rotation.x,
-            -Math.PI / 2 + 0.12,
-            Math.PI / 2 - 0.12
-          );
-      },
-      {
-        passive: false
-      }
-    );
-
-    canvas.addEventListener(
-      "touchend",
-      (event) => {
-        const activeTouch =
-          this.findActiveTouch(
-            event.touches
-          );
-
-        if (!activeTouch) {
-          this.stopTouchLook();
-        }
-      },
-      {
-        passive: true
-      }
-    );
-
-    canvas.addEventListener(
-      "touchcancel",
-      () => {
-        this.stopTouchLook();
-      },
-      {
-        passive: true
-      }
-    );
-  }
-
-  findActiveTouch(touchList) {
-    for (
-      let index = 0;
-      index < touchList.length;
-      index += 1
-    ) {
-      const touch =
-        touchList[index];
-
-      if (
-        touch.identifier ===
-        this.mobileLook.touchIdentifier
-      ) {
-        return touch;
-      }
-    }
-
-    return null;
-  }
-
-  stopTouchLook() {
-    this.mobileLook.active = false;
-
-    this.mobileLook.touchIdentifier =
-      null;
-  }
-
-  updatePlayer(deltaTime) {
-    if (this.isTouchDevice) {
-      if (!this.hasEnteredScene) {
-        return;
-      }
-
-      this.camera.position.y =
-        this.playerHeight;
-
-      return;
-    }
-
-    if (!this.controls.isLocked) {
-      return;
-    }
-
-    const damping =
-      Math.exp(
-        -10 * deltaTime
-      );
-
-    this.velocity.x *= damping;
-    this.velocity.z *= damping;
-
-    this.direction.set(
-      Number(
-        this.input.isPressed(
-          "KeyD"
-        )
-      ) -
-        Number(
-          this.input.isPressed(
-            "KeyA"
-          )
-        ),
-
+    this.controls.target.set(
       0,
-
-      Number(
-        this.input.isPressed(
-          "KeyW"
-        )
-      ) -
-        Number(
-          this.input.isPressed(
-            "KeyS"
-          )
-        )
+      0,
+      0
     );
 
-    if (
-      this.direction.lengthSq() > 0
-    ) {
-      this.direction.normalize();
-    }
-
-    const isSprinting =
-      this.input.isPressed(
-        "ShiftLeft"
-      ) ||
-      this.input.isPressed(
-        "ShiftRight"
-      );
-
-    const speed =
-      isSprinting
-        ? this.sprintSpeed
-        : this.normalSpeed;
-
-    this.velocity.x +=
-      this.direction.x *
-      speed *
-      deltaTime *
-      8;
-
-    this.velocity.z +=
-      this.direction.z *
-      speed *
-      deltaTime *
-      8;
-
-    this.controls.moveRight(
-      this.velocity.x *
-      deltaTime
-    );
-
-    this.controls.moveForward(
-      this.velocity.z *
-      deltaTime
-    );
-
-    this.applyWorldBounds();
-
-    this.camera.position.y =
-      this.playerHeight;
-  }
-
-  applyWorldBounds() {
-    const position =
-      this.camera.position;
-
-    position.x =
-      THREE.MathUtils.clamp(
-        position.x,
-        -31,
-        31
-      );
-
-    position.z =
-      THREE.MathUtils.clamp(
-        position.z,
-        -46,
-        35
-      );
-
-    const altarDistance =
-      Math.hypot(
-        position.x,
-        position.z + 7
-      );
-
-    if (altarDistance < 4.5) {
-      const angle =
-        Math.atan2(
-          position.z + 7,
-          position.x
-        );
-
-      position.x =
-        Math.cos(angle) * 4.5;
-
-      position.z =
-        Math.sin(angle) * 4.5 - 7;
-    }
-
-    if (
-      position.z < -33 &&
-      Math.abs(position.x) > 10
-    ) {
-      position.z = -33;
-    }
+    this.controls.update();
   }
 
   animate() {
@@ -605,9 +279,7 @@ export class Game {
     const elapsedTime =
       this.clock.elapsedTime;
 
-    this.updatePlayer(
-      deltaTime
-    );
+    this.controls.update();
 
     if (this.world) {
       updateWorld(
@@ -625,13 +297,41 @@ export class Game {
 
   handleResize() {
     const width =
-      window.innerWidth;
+      Math.max(
+        window.innerWidth,
+        1
+      );
 
     const height =
-      window.innerHeight;
+      Math.max(
+        window.innerHeight,
+        1
+      );
 
-    this.camera.aspect =
+    const aspect =
       width / height;
+
+    const verticalSize =
+      aspect < 0.85
+        ? 76
+        : aspect > 2
+          ? 56
+          : this.viewSize;
+
+    const horizontalSize =
+      verticalSize * aspect;
+
+    this.camera.left =
+      -horizontalSize / 2;
+
+    this.camera.right =
+      horizontalSize / 2;
+
+    this.camera.top =
+      verticalSize / 2;
+
+    this.camera.bottom =
+      -verticalSize / 2;
 
     this.camera.updateProjectionMatrix();
 
@@ -643,23 +343,17 @@ export class Game {
     this.renderer.setPixelRatio(
       Math.min(
         window.devicePixelRatio,
-        2
+        this.isTouchDevice ? 1.5 : 2
       )
     );
   }
 
   handleVisibilityChange() {
-    if (!document.hidden) {
+    if (document.hidden) {
+      this.clock.stop();
       return;
     }
 
-    this.stopTouchLook();
-
-    if (
-      !this.isTouchDevice &&
-      this.controls.isLocked
-    ) {
-      this.controls.unlock();
-    }
+    this.clock.start();
   }
 }
